@@ -4,7 +4,8 @@ class Parameters(np.ndarray):
     """Parameters for radial velocity fitting for a single telescope
     observing a single planet."""
 
-    def __new__(subclass, arr=None, nobs=1, npl=1):
+    def __new__(subclass, arr=None, nobs=1, npl=1, 
+                V=None, sigma0=None, tau=None, K=None, n=None, chi=None, e=None, omega=None):
         """Create a parameter object out of the given array (or a
         fresh array, if none given), with nobs observatories and npl
         planets."""
@@ -20,6 +21,30 @@ class Parameters(np.ndarray):
 
         obj._nobs = nobs
         obj._npl = npl
+
+        if V is not None:
+            obj.V = V
+
+        if sigma0 is not None:
+            obj.sigma0 = sigma0
+
+        if tau is not None:
+            obj.tau = tau
+
+        if K is not None:
+            obj.K = K
+
+        if n is not None:
+            obj.n = n
+
+        if chi is not None:
+            obj.chi = chi
+
+        if e is not None:
+            obj.e = e
+    
+        if omega is not None:
+            obj.omega = omega
 
         return obj
 

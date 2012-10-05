@@ -1,16 +1,20 @@
 import numpy as np
 import numpy.linalg as nl
+import numpy.random as nr
 import parameters as params
 import rv_model as rv
+import scipy.linalg as sl
 
 def correlated_gaussian_loglikelihood(xs, means, cov):
     """Returns the likelihood for data xs, assumed to be multivariate
     Gaussian with the given means and covariance."""
-    lambdas=nl.eigvalsh(cov)
+    lu,piv=sl.lu_factor(cov)
+
+    lambdas=np.diag(lu)
 
     ndim=xs.shape[0]
     
-    ds=(xs-means)*nl.solve(cov, xs-means)/2.0
+    ds=(xs-means)*sl.lu_solve((lu,piv), xs-means)/2.0
 
     return -np.log(2.0*np.pi)*(ndim/2.0)-np.sum(np.log(lambdas))-np.sum(ds)
 
@@ -143,3 +147,31 @@ def prior_bounds_from_times(nobs, npl, ts):
     pmax.omega = 2.0*np.pi
 
     return pmin, pmax
+
+def generate_initial_sample(p, n):
+    """Generates an initial sample of n parameters around the values
+    in p."""
+
+    assert p.nobs == 1, 'Cannot generate initial data for more than one observatory yet.'
+    assert p.npl == 1, 'Cannot generate initial data for more than one planet yet.'
+
+    if p.V == 0:
+        V_scale = 1.0
+    else:
+        V_scale = p.V
+
+    Vs=nr.normal(loc=p.V, scale=V_scale, size=n)
+    sigma0s=nr.lognormal(mean=np.log(p.sigma0), size=n)
+    taus=nr.lognormal(mean=np.log(p.tau), size=n)
+    Ks=nr.lognormal(mean=np.log(p.K), size=n)
+    nns=nr.lognormal(mean=np.log(p.n), size=n)
+    chis=nr.rand(n)
+    es=nr.rand(n)
+    omegas=2.0*np.pi*nr.rand(n)
+
+    samps=[]
+    for V,sigma0,tau,K,nn,chi,e,omega in zip(Vs, sigma0s, taus, Ks, nns, chis, es, omegas):
+        samps.append(params.Parameters(V=V,sigma0=sigma0,tau=tau,K=K,n=nn,chi=chi,e=e,omega=omega))
+
+    return np.array(samps)
+    

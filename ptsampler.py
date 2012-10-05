@@ -38,8 +38,13 @@ class DEStep(object):
         dx=2.38/np.sqrt(2.0*ndim)*nr.randn()*(pts[jj,:]-pts[ii,:])
 
         xnew=x+dx
-        lxnew=self.logl(xnew)
         pxnew=self.logp(xnew)
+
+        # Check for prior bounds
+        if pxnew == float('-inf'):
+            return x, lx, px
+
+        lxnew=self.logl(xnew)
 
         if beta*lxnew + pxnew > beta*lx + px or np.log(nr.rand()) < beta*lxnew+pxnew-beta*lx-px:
             # Accept step:
