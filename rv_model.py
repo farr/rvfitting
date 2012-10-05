@@ -1,4 +1,5 @@
 import numpy as np
+import parameters as params
 import scipy.optimize as so
 
 def kepler_f(M, E, e):
@@ -31,31 +32,23 @@ def kepler_solve_ta(n, e, t):
 
     return f
 
-def rv_model(ts, params):
-    """Returns the radial velocity measured at the given times for an
-    orbit with the given parameters.  The parameters are
-    [K,t0,e,omega,n], where
+def rv_model(ts, ps):
+    """Returns the radial velocity measurements associated with the
+    planets in parameters ps at times ts.  The returned array has
+    shape (Npl, Nts)."""
 
-    * K is the radial velocity semi-amplitude.
-    
-    * e is the eccentriticy of the orbit.
+    rvs=np.zeros((ps.npl, ts.shape[0]))
+    for i,(K,e,omega,chi,n) in enumerate(zip(ps.K, ps.e, ps.omega, ps.chi, ps.n)):
 
-    * omega is the longitude of periastron.
+        ecw=e*np.cos(omega)
+        esw=e*np.sin(omega)
 
-    * chi is the fraction of the orbit that has passed at t = 0.
+        t0 = -chi*2.0*np.pi/n
 
-    * n is the mean motion of the planet (n = 2*Pi/P, with P the
-      period)."""
+        fs=np.array([kepler_solve_ta(n, e, (t-t0)) for t in ts])
 
-    K,e,omega,chi,n=params
+        rvs[i,:]=K*(np.sin(fs + omega) + ecw)
 
-    ecw=e*np.cos(omega)
-    esw=e*np.sin(omega)
-
-    t0 = -chi*2.0*np.pi/n
-
-    fs=np.array([kepler_solve_ta(n, e, (t-t0)) for t in ts])
-
-    return K*(np.sin(fs + omega) + ecw)
+    return rvs
 
     
