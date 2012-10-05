@@ -110,3 +110,36 @@ class LogLikelihood(object):
 
         return ll
             
+def prior_bounds_from_times(nobs, npl, ts):
+    """Returns conservative prior bounds (pmin, pmax) given sampling
+    times for each observatory."""
+
+    assert nobs == len(ts), 'nobs does not agree with length of ts list'
+
+    dts=[np.diff(t) for t in ts]
+    min_dt=reduce(min, [np.min(dt) for dt in dts])
+
+    tobss=[t[-1]-t[0] for t in ts]
+    max_obst=reduce(max, tobss)
+
+    pmin=params.Parameters(nobs=nobs,npl=npl)
+    pmax=params.Parameters(nobs=nobs,npl=npl)
+
+    pmin[:]=0.0
+    pmax[:]=float('inf')
+
+    pmin.V = float('-inf')
+
+    pmin.tau = min_dt/10.0
+    pmax.tau = 10.0*max_obst
+
+    pmin.n = 2.0*np.pi/(10.0*max_obst)
+    pmax.n = 2.0*np.pi/(min_dt/10.0)
+
+    pmax.chi = 1.0
+
+    pmax.e = 1.0
+    
+    pmax.omega = 2.0*np.pi
+
+    return pmin, pmax
