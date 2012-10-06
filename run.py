@@ -91,6 +91,7 @@ if __name__ == '__main__':
             tau=float('inf')
 
         print '%11.1f %11.1f %11.1f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), tau)
+        sys.stdout.flush()
             
         with open(args.output, 'a') as out:
             np.savetxt(out, np.reshape(pts, (-1, pts.shape[-1])))
