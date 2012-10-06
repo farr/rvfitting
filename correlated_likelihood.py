@@ -114,11 +114,11 @@ class LogLikelihood(object):
 
         return ll
             
-def prior_bounds_from_times(nobs, npl, ts):
+def prior_bounds_from_times(npl, ts):
     """Returns conservative prior bounds (pmin, pmax) given sampling
     times for each observatory."""
 
-    assert nobs == len(ts), 'nobs does not agree with length of ts list'
+    nobs=len(ts)
 
     dts=[np.diff(t) for t in ts]
     min_dt=reduce(min, [np.min(dt) for dt in dts])
