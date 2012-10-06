@@ -1,3 +1,4 @@
+import acor
 import emcee as em
 import multiprocessing as multi
 import numpy as np
@@ -158,3 +159,41 @@ class PTSampler(object):
 
             if niters is not None and iiter >= niters:
                 break
+
+def thermodynamic_evidence(logls):
+    """Computes the evidence integral from the (Nsamples,
+    Ntemperatures, Nwalkers) set of log(L) samples."""
+
+    mean_logls=np.mean(np.mean(logls, axis=2), axis=0)
+
+    dbeta=1.0/logls.shape[1]
+
+    return dbeta*np.sum(mean_logls) + 1.0
+
+def burned_in_samples(pts, fburnin=0.1):
+    """Returns the samples from pts after an initial burnin
+    fraction.  pts should have shape (Nsamples, ...)."""
+
+    iburnin=int(fburnin*pts.shape[0]+1)
+
+    post_burnin_shape=(-1,) + pts.shape[1:]
+
+    return np.reshape(np.reshape(pts, (pts.shape[0], -1))[iburnin:, :], post_burnin_shape)
+
+def decorrelated_samples(pts):
+    """Returns a subset of pts that is downsampled by the longest
+    correlation length in pts.  pts should have shape (Nsamples,
+    Nwalkers, Ndim)."""
+
+    means=np.mean(pts, axis=1)
+
+    taumax=float('-inf')
+    for j in range(means.shape[1]):
+        tau,mu,sigma=acor.acor(means[:,j])
+        taumax=max(tau,taumax)
+
+    taumax=int(taumax+1)
+
+    return pts[::taumax, :, :]
+
+    
