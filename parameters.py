@@ -172,5 +172,6 @@ class Parameters(np.ndarray):
     def npl(self):
         return self._npl
 
-    
-        
+    @property
+    def P(self):
+        return 2.0*np.pi/self.n
