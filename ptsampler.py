@@ -89,6 +89,9 @@ class PTSampler(object):
         else:
             self.pool = None
 
+        self.naccepted=None
+        self.niter=0
+
     def samples(self, pts, logls=None, logps=None, niters=None):
         """Given a (num_temps, n_walkers, ndim) array of initial
         points, returns a sequence of (newpts, logls, logps).  logls
@@ -115,6 +118,10 @@ class PTSampler(object):
                 lp=LogLLogP(pts[i,:,:], logp)
                 logps[i,:]=np.array(ChunkedMap(self.pool, nwalkers/self.nthreads+1)(lp, range(nwalkers)))
 
+        if self.naccepted is None:
+            self.naccepted=np.zeros((ntemps,nwalkers), dtype=np.int)
+            self.niter=0
+
         iiter=0
         while True:
             # Run one step of de sampling:
@@ -123,6 +130,11 @@ class PTSampler(object):
                 new_states=ChunkedMap(self.pool, nwalkers/self.nthreads+1)(evolvefn, range(nwalkers))
 
                 for j,(x,lx,px) in enumerate(new_states):
+                    if np.all(pts[i,j,:] == x):
+                        pass
+                    else:
+                        self.naccepted[i,j] += 1
+
                     pts[i,j,:]=x
                     logls[i,j]=lx
                     logps[i,j]=px
@@ -155,10 +167,18 @@ class PTSampler(object):
                         logps[i+1,jj]=tempp
                         
             iiter+=1
-            yield np.copy(pts), np.copy(logls), np.copy(logps)
+            self.niter += 1
+            yield np.copy(pts), np.copy(logls), np.copy(logps), self.naccepted/float(self.niter)
 
             if niters is not None and iiter >= niters:
                 break
+
+    def reset_afrac(self):
+        """Reset the acceptance fraction."""
+        self.naccepted=None
+        self.niter=0
+
+
 
 def thermodynamic_log_evidence(logls):
     """Computes the evidence integral from the (Nsamples,

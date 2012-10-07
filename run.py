@@ -73,12 +73,12 @@ if __name__ == '__main__':
 
     start_logl=np.amax(logls)
 
-    print 'max(log(L)) med(log(L)) min(log(L)) acorr(<log(L)>)'
+    print 'max(log(L)) med(log(L)) min(log(L)) <afrac> acorr(<log(L)>)'
     sys.stdout.flush()
 
     mean_logls=[np.mean(logls[0,:])]
     while True:
-        for pts, logls, logps in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
+        for pts, logls, logps, afrac in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
             pass
 
         mean_logls.append(np.mean(logls[0,:]))
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         except:
             tau=float('inf')
 
-        print '%11.1f %11.1f %11.1f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), tau)
+        print '%11.1f %11.1f %11.1f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tau)
         sys.stdout.flush()
             
         with open(args.output, 'a') as out:
