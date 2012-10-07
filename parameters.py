@@ -12,7 +12,7 @@ class Parameters(np.ndarray):
 
         assert nobs >= 1, 'must have at least one observatory'
         assert npl >= 1, 'must have at least one planet'
-        assert arr is None or (arr.ndim == 1 and arr.shape[0] == 3*nobs+5*npl), 'array dimensions must match 3*nobs + 5*npl'
+        assert arr is None or arr.shape[-1] == 3*nobs+5*npl, 'final array dimensions must match 3*nobs + 5*npl'
 
         if arr is None:
             arr = np.zeros(nobs*3+npl*5)
@@ -76,75 +76,75 @@ class Parameters(np.ndarray):
     @property
     def V(self):
         """The velocity offset of the observatory or observatories."""
-        return np.array(self[0:3*self.nobs:3])
+        return np.array(self[...,0:3*self.nobs:3])
 
     @V.setter
     def V(self, vs):
-        self[0:3*self.nobs:3] = vs
+        self[...,0:3*self.nobs:3] = vs
        
     @property
     def sigma0(self):
         """The variance at zero lag of the telescope errors."""
-        return np.array(self[1:3*self.nobs:3])
+        return np.array(self[...,1:3*self.nobs:3])
 
     @sigma0.setter
     def sigma0(self, s0):
-        self[1:3*self.nobs:3] = s0
+        self[...,1:3*self.nobs:3] = s0
         
     @property
     def tau(self):
         """The exponential decay timescale for correlations in
         telescope errors."""
-        return np.array(self[2:3*self.nobs:3])
+        return np.array(self[...,2:3*self.nobs:3])
 
     @tau.setter
     def tau(self, t):
-        self[2:3*self.nobs:3] = t
+        self[...,2:3*self.nobs:3] = t
         
     @property
     def K(self):
         """The amplitude of the radial velocity."""
-        return np.array(self[3*self.nobs::5])
+        return np.array(self[...,3*self.nobs::5])
         
     @K.setter
     def K(self, k):
-        self[3*self.nobs::5] = k
+        self[...,3*self.nobs::5] = k
 
     @property
     def n(self):
         """Mean motion (2*pi/P)."""
-        return np.array(self[3*self.nobs+1::5])
+        return np.array(self[...,3*self.nobs+1::5])
 
     @n.setter
     def n(self, nn):
-        self[3*self.nobs+1::5] = nn
+        self[...,3*self.nobs+1::5] = nn
         
     @property
     def chi(self):
         """The fraction of an orbit completed at t = 0."""
-        return np.array(self[3*self.nobs+2::5])
+        return np.array(self[...,3*self.nobs+2::5])
 
     @chi.setter
     def chi(self, c):
-        self[3*self.nobs+2::5] = c
+        self[...,3*self.nobs+2::5] = c
         
     @property
     def e(self):
         """The orbital eccentricity."""
-        return np.array(self[3*self.nobs+3::5])
+        return np.array(self[...,3*self.nobs+3::5])
 
     @e.setter
     def e(self, ee):
-        self[3*self.nobs+3::5]=ee
+        self[...,3*self.nobs+3::5]=ee
         
     @property
     def omega(self):
         """The longitude of perastron."""
-        return np.array(self[3*self.nobs+4::5])
+        return np.array(self[...,3*self.nobs+4::5])
         
     @omega.setter
     def omega(self, o):
-        self[3*self.nobs+4::5]=o
+        self[...,3*self.nobs+4::5]=o
 
     @property
     def obs(self):
