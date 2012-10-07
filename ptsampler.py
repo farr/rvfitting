@@ -104,7 +104,7 @@ class PTSampler(object):
 
         ntemps,nwalkers,ndim = pts.shape
 
-        betas=np.linspace(1,0,ntemps+1)[:-1]
+        betas=exponential_beta_ladder(ntemps)
 
         if logls is None:
             logls=np.zeros((ntemps,nwalkers))
@@ -178,17 +178,21 @@ class PTSampler(object):
         self.naccepted=None
         self.niter=0
 
-
+def exponential_beta_ladder(ntemps):
+    return np.exp(np.linspace(0, -(ntemps-1)*np.log(np.sqrt(2)), ntemps))
 
 def thermodynamic_log_evidence(logls):
     """Computes the evidence integral from the (Nsamples,
     Ntemperatures, Nwalkers) set of log(L) samples."""
 
+    nsamp,ntemp,nwalk=logls.shape
+
     mean_logls=np.mean(np.mean(logls, axis=2), axis=0)
 
-    dbeta=1.0/logls.shape[1]
+    betas=exponential_beta_ladder(ntemp)
+    betas=np.concatenate((betas, np.array([0.0])))
 
-    return dbeta*np.sum(mean_logls)
+    return np.sum(mean_logls*np.diff(betas))
 
 def burned_in_samples(pts, fburnin=0.1):
     """Returns the samples from pts after an initial burnin
