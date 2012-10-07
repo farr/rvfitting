@@ -159,7 +159,7 @@ def generate_initial_sample(p, n):
     if p.V == 0:
         V_scale = 1.0
     else:
-        V_scale = p.V
+        V_scale = np.abs(p.V)
 
     Vs=nr.normal(loc=p.V, scale=V_scale, size=n)
     sigma0s=nr.lognormal(mean=np.log(p.sigma0), size=n)
