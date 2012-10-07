@@ -10,7 +10,7 @@ if __name__ == '__main__':
     parser.add_argument('--input', metavar='FILE', required=True, help='logl file')
 
     parser.add_argument('--ntemps', metavar='N', type=int, default=10, help='number of temperatures')
-    parser.add_argument('--nwalkers', metavar='N', type=int, default=10, help='number of walkers')
+    parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers')
 
     args=parser.parse_args()
 
