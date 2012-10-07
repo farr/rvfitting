@@ -160,7 +160,7 @@ class PTSampler(object):
             if niters is not None and iiter >= niters:
                 break
 
-def thermodynamic_evidence(logls):
+def thermodynamic_log_evidence(logls):
     """Computes the evidence integral from the (Nsamples,
     Ntemperatures, Nwalkers) set of log(L) samples."""
 
@@ -168,7 +168,7 @@ def thermodynamic_evidence(logls):
 
     dbeta=1.0/logls.shape[1]
 
-    return dbeta*np.sum(mean_logls) + 1.0
+    return dbeta*np.sum(mean_logls)
 
 def burned_in_samples(pts, fburnin=0.1):
     """Returns the samples from pts after an initial burnin
