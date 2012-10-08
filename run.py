@@ -3,6 +3,7 @@
 import acor
 from argparse import ArgumentParser
 import correlated_likelihood as cl
+from gzip import GzipFile
 import numpy as np
 import os
 from parameters import Parameters
@@ -24,7 +25,7 @@ def load_data(files):
 if __name__ == '__main__':
     parser=ArgumentParser()
 
-    parser.add_argument('--prefix', metavar='PRE', default='chain', help='output prefix (files will be <prefix>.NN.txt)')
+    parser.add_argument('--prefix', metavar='PRE', default='chain', help='output prefix (files will be <prefix>.NN.txt.gz)')
 
     parser.add_argument('--nthreads', metavar='N', type=int, default=1, help='number of parallel threads')
     parser.add_argument('--nplanets', metavar='N', type=int, default=1, help='number of planets')
@@ -47,7 +48,7 @@ if __name__ == '__main__':
         logps=[]
 
         for i in range(args.ntemps):
-            data=np.loadtxt('%s.%02d.txt'%(args.prefix, i))
+            data=np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i))
             pts.append(data[-args.nwalkers:, 2:])
             logls.append(data[-args.nwalkers:,0])
             logps.append(data[-args.nwalkers:,1])
@@ -83,7 +84,7 @@ if __name__ == '__main__':
             tau=float('inf')
 
         for i in range(args.ntemps):
-            with open('%s.%02d.txt'%(args.prefix, i), 'a') as out:
+            with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'a') as out:
                 np.savetxt(out, np.column_stack((logls[i,...], logps[i,...], pts[i,...])))
 
         print '%11.1f %11.1f %11.1f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tau)
