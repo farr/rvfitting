@@ -153,38 +153,43 @@ class PTSampler(object):
                     logls[i,j]=lx
                     logps[i,j]=px
 
-            # Now do temperature swaps
-            for i,beta1 in enumerate(betas[:-1]):
-                beta2=betas[i+1]
+            # Now do temperature swaps when iiter % 4 == 0 (assuming
+            # that temperature swaps succeed 100% of the time, this
+            # will give a 25% acceptance rate).  Start at the lowest
+            # temperature, and swap up.
+            if iiter%4==0:
+                for i in range(ntemps-1, 0, -1):
+                    beta1=betas[i]
+                    beta2=betas[i-1]
                 
-                for j in range(nwalkers):
-                    ii=nr.randint(nwalkers)
-                    jj=nr.randint(nwalkers)
+                    for j in range(nwalkers):
+                        ii=nr.randint(nwalkers)
+                        jj=nr.randint(nwalkers)
 
-                    l1=logls[i,ii]
-                    l2=logls[i+1, jj]
+                        l1=logls[i,ii]
+                        l2=logls[i-1, jj]
 
-                    ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
+                        ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
 
-                    self.ntproposed[i] += 1
-                    self.ntproposed[i+1] += 1
+                        self.ntproposed[i] += 1
+                        self.ntproposed[i-1] += 1
 
-                    if ll > 0.0 or np.log(nr.rand()) < ll:
-                        self.ntaccepted[i] += 1
-                        self.ntaccepted[i+1] += 1
+                        if ll > 0.0 or np.log(nr.rand()) < ll:
+                            self.ntaccepted[i] += 1
+                            self.ntaccepted[i-1] += 1
 
-                        # Accept swap
-                        temp=np.copy(pts[i,ii,:])
-                        templ=logls[i,ii]
-                        tempp=logps[i,ii]
+                            # Accept swap
+                            temp=np.copy(pts[i,ii,:])
+                            templ=logls[i,ii]
+                            tempp=logps[i,ii]
 
-                        pts[i,ii,:]=pts[i+1,jj,:]
-                        logls[i,ii]=logls[i+1,jj]
-                        logps[i,ii]=logps[i+1,jj]
+                            pts[i,ii,:]=pts[i-1,jj,:]
+                            logls[i,ii]=logls[i-1,jj]
+                            logps[i,ii]=logps[i-1,jj]
 
-                        pts[i+1,jj,:]=temp
-                        logls[i+1,jj]=templ
-                        logps[i+1,jj]=tempp
+                            pts[i-1,jj,:]=temp
+                            logls[i-1,jj]=templ
+                            logps[i-1,jj]=tempp
                         
             iiter+=1
             self.niter += 1
