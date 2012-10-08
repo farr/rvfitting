@@ -110,6 +110,10 @@ if __name__ == '__main__':
         print '%11.1f %11.1f %11.1f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tau)
         sys.stdout.flush()
             
+        assert logls.ndim == 2
+        assert logls.shape[0] == args.ntemps, 'logls has the wrong shape[0]'
+        assert logls.shape[1] == args.nwalkers, 'logls has wrong shape[1]'
+
         with open(args.output, 'a') as out:
             np.savetxt(out, np.reshape(pts, (-1, pts.shape[-1])))
         with open(args.likelihood, 'a') as out:
