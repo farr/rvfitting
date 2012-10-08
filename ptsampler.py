@@ -184,7 +184,7 @@ class PTSampler(object):
         self.niter=0
 
 def exponential_beta_ladder(ntemps):
-    return np.exp(np.linspace(0, -(ntemps-1)*np.log(np.sqrt(2)), ntemps))
+    return np.exp(np.linspace(0, -(ntemps-1)*0.25*np.log(2), ntemps))
 
 def thermodynamic_log_evidence(logls):
     """Computes the evidence integral from the (Nsamples,
