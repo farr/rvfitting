@@ -97,12 +97,17 @@ class PTSampler(object):
         self.naccepted=None
         self.niter=0
 
+        self.ntaccepted=None
+        self.ntproposed=None
+
     def samples(self, pts, logls=None, logps=None, niters=None):
         """Given a (num_temps, n_walkers, ndim) array of initial
-        points, returns a sequence of (newpts, logls, logps).  logls
-        and logps should have shape (n_temps, n_walkers), if they are
-        given.  The iteration will terminate after niters steps
-        (unless niters is None)."""
+        points, returns a sequence of (newpts, logls, logps,
+        fdeaccept, ftswapaccept).  logls and logps should have shape
+        (n_temps, n_walkers), if they are given.  The iteration will
+        terminate after niters steps (unless niters is None).
+        fdeaccept has shape (Ntemps, Nwalkers), while ftswapaccept has
+        shape (Ntemps,)"""
 
         logl=self.logl
         logp=self.logp
@@ -126,6 +131,10 @@ class PTSampler(object):
         if self.naccepted is None:
             self.naccepted=np.zeros((ntemps,nwalkers), dtype=np.int)
             self.niter=0
+
+        if self.ntaccepted is None or self.ntproposed is None:
+            self.ntaccepted=np.zeros(ntemps, dtype=np.float)
+            self.ntproposed=np.zeros(ntemps, dtype=np.float)
 
         iiter=0
         while True:
@@ -157,7 +166,13 @@ class PTSampler(object):
 
                     ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
 
+                    self.ntproposed[i] += 1
+                    self.ntproposed[i+1] += 1
+
                     if ll > 0.0 or np.log(nr.rand()) < ll:
+                        self.ntaccepted[i] += 1
+                        self.ntaccepted[i+1] += 1
+
                         # Accept swap
                         temp=np.copy(pts[i,ii,:])
                         templ=logls[i,ii]
@@ -173,7 +188,7 @@ class PTSampler(object):
                         
             iiter+=1
             self.niter += 1
-            yield np.copy(pts), np.copy(logls), np.copy(logps), self.naccepted/float(self.niter)
+            yield np.copy(pts), np.copy(logls), np.copy(logps), self.naccepted/float(self.niter), self.ntaccepted/self.ntproposed
 
             if niters is not None and iiter >= niters:
                 break
@@ -182,6 +197,9 @@ class PTSampler(object):
         """Reset the acceptance fraction."""
         self.naccepted=None
         self.niter=0
+
+        self.ntaccepted=None
+        self.ntproposed=None
 
 def exponential_beta_ladder(ntemps):
     return np.exp(np.linspace(0, -(ntemps-1)*0.25*np.log(2), ntemps))

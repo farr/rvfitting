@@ -66,12 +66,12 @@ if __name__ == '__main__':
 
     sampler=PTSampler(log_likelihood, log_prior, nthreads=args.nthreads)
 
-    print 'max(log(L)) med(log(L)) min(log(L)) <afrac> acorr(<log(L)>)'
+    print 'max(log(L)) med(log(L)) min(log(L)) <afrac> <tfrac> acorr(<log(L)>)'
     sys.stdout.flush()
 
     mean_logls=[]
     while True:
-        for pts, logls, logps, afrac in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
+        for pts, logls, logps, afrac, tfrac in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
             pass
 
         mean_logls.append(np.mean(logls[0,:]))
@@ -87,6 +87,6 @@ if __name__ == '__main__':
             with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'a') as out:
                 np.savetxt(out, np.column_stack((logls[i,...], logps[i,...], pts[i,...])))
 
-        print '%11.1f %11.1f %11.1f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tau)
+        print '%11.1f %11.1f %11.1f %7.2f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tfrac[0], tau)
         sys.stdout.flush()
             
