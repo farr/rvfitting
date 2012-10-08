@@ -114,7 +114,7 @@ class PTSampler(object):
 
         ntemps,nwalkers,ndim = pts.shape
 
-        betas=linear_beta_ladder(ntemps)
+        betas=exponential_beta_ladder(ntemps)
 
         if logls is None:
             logls=np.zeros((ntemps,nwalkers))
@@ -153,43 +153,40 @@ class PTSampler(object):
                     logls[i,j]=lx
                     logps[i,j]=px
 
-            # Now do temperature swaps when iiter % 4 == 0 (assuming
-            # that temperature swaps succeed 100% of the time, this
-            # will give a 25% acceptance rate).  Start at the lowest
+            # Now do temperature swaps.  Start at the lowest
             # temperature, and swap up.
-            if iiter%4==0:
-                for i in range(ntemps-1, 0, -1):
-                    beta1=betas[i]
-                    beta2=betas[i-1]
+            for i in range(ntemps-1, 0, -1):
+                beta1=betas[i]
+                beta2=betas[i-1]
                 
-                    for j in range(nwalkers):
-                        ii=nr.randint(nwalkers)
-                        jj=nr.randint(nwalkers)
+                for j in range(nwalkers):
+                    ii=nr.randint(nwalkers)
+                    jj=nr.randint(nwalkers)
 
-                        l1=logls[i,ii]
-                        l2=logls[i-1, jj]
+                    l1=logls[i,ii]
+                    l2=logls[i-1, jj]
 
-                        ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
+                    ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
 
-                        self.ntproposed[i] += 1
-                        self.ntproposed[i-1] += 1
+                    self.ntproposed[i] += 1
+                    self.ntproposed[i-1] += 1
 
-                        if ll > 0.0 or np.log(nr.rand()) < ll:
-                            self.ntaccepted[i] += 1
-                            self.ntaccepted[i-1] += 1
+                    if ll > 0.0 or np.log(nr.rand()) < ll:
+                        self.ntaccepted[i] += 1
+                        self.ntaccepted[i-1] += 1
 
-                            # Accept swap
-                            temp=np.copy(pts[i,ii,:])
-                            templ=logls[i,ii]
-                            tempp=logps[i,ii]
+                        # Accept swap
+                        temp=np.copy(pts[i,ii,:])
+                        templ=logls[i,ii]
+                        tempp=logps[i,ii]
 
-                            pts[i,ii,:]=pts[i-1,jj,:]
-                            logls[i,ii]=logls[i-1,jj]
-                            logps[i,ii]=logps[i-1,jj]
+                        pts[i,ii,:]=pts[i-1,jj,:]
+                        logls[i,ii]=logls[i-1,jj]
+                        logps[i,ii]=logps[i-1,jj]
 
-                            pts[i-1,jj,:]=temp
-                            logls[i-1,jj]=templ
-                            logps[i-1,jj]=tempp
+                        pts[i-1,jj,:]=temp
+                        logls[i-1,jj]=templ
+                        logps[i-1,jj]=tempp
                         
             iiter+=1
             self.niter += 1
@@ -207,9 +204,13 @@ class PTSampler(object):
         self.ntproposed=None
 
 def exponential_beta_ladder(ntemps):
-    return np.exp(np.linspace(0, -(ntemps-1)*0.25*np.log(2), ntemps))
+    """Exponential ladder in T, increasing by sqrt(2) each step, with
+    ntemps in total."""
+    return np.exp(np.linspace(0, -(ntemps-1)*0.5*np.log(2), ntemps))
 
 def linear_beta_ladder(ntemps):
+    """Linear ladder in beta, decreasing from 1, with ntemps in
+    total."""
     return np.linspace(1, 0, ntemps+1)[:-1]
 
 def thermodynamic_log_evidence(logls):
@@ -220,7 +221,7 @@ def thermodynamic_log_evidence(logls):
 
     mean_logls=np.mean(np.mean(logls, axis=2), axis=0)
 
-    betas=linear_beta_ladder(ntemp)
+    betas=exponential_beta_ladder(ntemp)
     betas=np.concatenate((betas, np.array([0.0])))
 
     return np.sum(mean_logls*np.diff(betas))
