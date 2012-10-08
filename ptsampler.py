@@ -36,7 +36,10 @@ class DEStep(object):
         while jj == ii:
             jj=nr.randint(nwalkers)
 
-        dx=2.38/np.sqrt(2.0*ndim)*nr.randn()*(pts[jj,:]-pts[ii,:])
+        if nr.rand() < 0.9:
+            dx=2.38/np.sqrt(2.0*ndim)*nr.randn()*(pts[jj,:]-pts[ii,:])
+        else:
+            dx=pts[jj,:]-pts[ii,:]
 
         xnew=x+dx
         pxnew=self.logp(xnew)
@@ -47,7 +50,9 @@ class DEStep(object):
 
         lxnew=self.logl(xnew)
 
-        if beta*lxnew + pxnew > beta*lx + px or np.log(nr.rand()) < beta*lxnew+pxnew-beta*lx-px:
+        lpaccept=beta*lxnew + pxnew - beta*lx - px
+
+        if lpaccept > 0 or np.log(nr.rand()) < lpaccept:
             # Accept step:
             return xnew, lxnew, pxnew
         else:
