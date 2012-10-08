@@ -87,6 +87,11 @@ if __name__ == '__main__':
             with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'a') as out:
                 np.savetxt(out, np.column_stack((logls[i,...], logps[i,...], pts[i,...])))
 
+        with GzipFile('%s.accept.txt.gz'%args.prefix, 'a') as out:
+            np.savetxt(out, np.reshape(np.mean(afrac, axis=1), (1, -1)))
+        with GzipFile('%s.aswaps.txt.gz'%args.prefix, 'a') as out:
+            np.savetxt(out, np.reshape(tfrac, (1, -1)))
+
         print '%11.1f %11.1f %11.1f %7.2f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tfrac[0], tau)
         sys.stdout.flush()
             
