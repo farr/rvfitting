@@ -149,32 +149,35 @@ def prior_bounds_from_times(npl, ts):
 
     return pmin, pmax
 
-def generate_initial_sample(p, n):
-    """Generates an initial sample of n parameters around the values
-    in p."""
+def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
+    """Generates an initial sample of parameters for
+    single-observatory, single-planet setups."""
 
-    assert p.nobs == 1, 'Cannot generate initial data for more than one observatory yet.'
-    assert p.npl == 1, 'Cannot generate initial data for more than one planet yet.'
+    ts=np.concatenate(ts)
+    rvs=np.concatenate(rvs)
 
-    if p.V == 0:
-        V_scale = 1.0
-    else:
-        V_scale = np.abs(p.V)
+    mu=np.mean(rvs)
+    sig=np.std(rvs)
+    sqrtN=np.sqrt(rvs.shape[0])
 
-    Vs=nr.normal(loc=p.V, scale=V_scale, size=n)
-    sigma0s=nr.lognormal(mean=np.log(p.sigma0), size=n)
-    taus=nr.lognormal(mean=np.log(p.tau), size=n)
-    Ks=nr.lognormal(mean=np.log(p.K), size=n)
-    nns=nr.lognormal(mean=np.log(p.n), size=n)
-    chis=nr.rand(n)
-    es=nr.rand(n)
-    omegas=2.0*np.pi*nr.rand(n)
+    T=np.amax(ts)-np.amin(ts)
+    dtmin=np.min(np.diff(np.sort(ts)))
 
-    samps=[]
-    for V,sigma0,tau,K,nn,chi,e,omega in zip(Vs, sigma0s, taus, Ks, nns, chis, es, omegas):
-        samps.append(params.Parameters(V=V,sigma0=sigma0,tau=tau,K=K,n=nn,chi=chi,e=e,omega=omega))
+    nmin=2.0*np.pi/T
+    nmax=2.0*np.pi/dtmin
 
-    return np.array(samps)
+    samps=params.Parameters(arr=np.zeros((ntemps, nwalkers, 3*nobs+5*npl)), nobs=nobs, npl=npl)
+
+    samps.V = nr.normal(loc=mu, scale=sig/sqrtN, size=(ntemps,nwalkers,nobs))
+    samps.sigma0 = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
+    samps.tau = nr.uniform(low=dtmin, high=T, size=(ntemps, nwalkers,nobs))
+    samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
+    samps.n = nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl))
+    samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
+    samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
+    samps.omega = nr.uniform(low=0.0, high=2.0*np.pi, size=(ntemps, nwalkers,npl))
+
+    return samps
 
 def recenter_samples(ts, chains, logls, sigmafactor=0.1):
     """Generates a suite of samples around the maximum likelihood

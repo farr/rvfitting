@@ -21,23 +21,10 @@ def load_data(files):
 
     return ts,rvs
 
-def overwrite(file, data):
-    if data is not None:
-        with tempfile.NamedTemporaryFile(dir=os.path.dirname(file), delete=False) as out:
-            name=out.name
-            np.savetxt(out, np.reshape(data, (-1, data.shape[-1])))
-
-        os.rename(name, file)
-    else:
-        with open(file, 'w') as out:
-            pass
-
 if __name__ == '__main__':
     parser=ArgumentParser()
 
-    parser.add_argument('--output', metavar='FILE', required=True, help='output file')
-    parser.add_argument('--likelihood', metavar='FILE', required=True, default=None, help='likelihood file')
-    parser.add_argument('--prior', metavar='FILE', required=True, default=None, help='prior file')
+    parser.add_argument('--prefix', metavar='PRE', default='chain', help='output prefix (files will be <prefix>.NN.txt)')
 
     parser.add_argument('--nthreads', metavar='N', type=int, default=1, help='number of parallel threads')
     parser.add_argument('--nplanets', metavar='N', type=int, default=1, help='number of planets')
@@ -46,30 +33,32 @@ if __name__ == '__main__':
     parser.add_argument('--ntemps', metavar='N', type=int, default=10, help='number of temperatures')
     parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers')
 
-    parser.add_argument('--reset', default=False, const=True, action='store_const', help='reset the chain')
-
     parser.add_argument('--rvs', metavar='FILE', required=True, default=[], action='append', help='file of times and RV\'s')
 
     args=parser.parse_args()
 
-    pts=np.loadtxt(args.output)
-    pts=np.reshape(pts, (-1, args.ntemps, args.nwalkers, pts.shape[1]))[-1, :,:,:]
-
-    try:
-        logls=np.loadtxt(args.likelihood)
-        logls=np.reshape(logls, (-1, args.ntemps, args.nwalkers))[-1,:,:]
-    except:
-        logls=None
-
-    try:
-        logps=np.loadtxt(args.prior)
-        logps=np.reshape(logps, (-1, args.ntemps, args.nwalkers))[-1,:,:]
-    except:
-        logps=None
-
     ts, rvs=load_data(args.rvs)
 
     pmin,pmax=cl.prior_bounds_from_times(args.nplanets, ts)
+
+    try:
+        pts=[]
+        logls=[]
+        logps=[]
+
+        for i in range(args.ntemps):
+            data=np.loadtxt('%s.%02d.txt'%(args.prefix, i))
+            pts.append(data[-args.nwalkers:, 2:])
+            logls.append(data[-args.nwalkers:,0])
+            logps.append(data[-args.nwalkers:,1])
+
+        pts=np.array(pts)
+        logls=np.array(logls)
+        logps=np.array(logps)
+    except:
+        pts=cl.generate_initial_sample(ts, rvs, args.ntemps, args.nwalkers)
+        logls=None
+        logps=None
 
     log_likelihood=cl.LogLikelihood(ts, rvs)
     log_prior=cl.LogPrior(pmin=pmin, pmax=pmax)
@@ -79,21 +68,7 @@ if __name__ == '__main__':
     print 'max(log(L)) med(log(L)) min(log(L)) <afrac> acorr(<log(L)>)'
     sys.stdout.flush()
 
-    if logls is not None:
-        mean_logls=[np.mean(logls[0,:])]
-    else:
-        mean_logls=[]
-
-    # If no logls, logps, reset.
-    if logls is None or logps is None:
-        overwrite(args.output, None)
-        overwrite(args.likelihood, None)
-        overwrite(args.prior, None)
-    elif args.reset:
-        overwrite(args.output, pts)
-        overwrite(args.likelihood, pts)
-        overwrite(args.prior, pts)
-
+    mean_logls=[]
     while True:
         for pts, logls, logps, afrac in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
             pass
@@ -107,16 +82,10 @@ if __name__ == '__main__':
         except:
             tau=float('inf')
 
+        for i in range(args.ntemps):
+            with open('%s.%02d.txt'%(args.prefix, i), 'a') as out:
+                np.savetxt(out, np.column_stack((logls[i,...], logps[i,...], pts[i,...])))
+
         print '%11.1f %11.1f %11.1f %7.2f %15.1f'%(np.amax(logls[0,:]), np.median(logls[0,:]), np.min(logls[0,:]), np.mean(afrac[0,:]), tau)
         sys.stdout.flush()
             
-        assert logls.ndim == 2
-        assert logls.shape[0] == args.ntemps, 'logls has the wrong shape[0]'
-        assert logls.shape[1] == args.nwalkers, 'logls has wrong shape[1]'
-
-        with open(args.output, 'a') as out:
-            np.savetxt(out, np.reshape(pts, (-1, pts.shape[-1])))
-        with open(args.likelihood, 'a') as out:
-            np.savetxt(out, logls)
-        with open(args.prior, 'a') as out:
-            np.savetxt(out, logps)
