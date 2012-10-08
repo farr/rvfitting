@@ -62,7 +62,7 @@ if __name__ == '__main__':
         logps=None
 
     log_likelihood=cl.LogLikelihood(ts, rvs)
-    log_prior=cl.LogPrior(pmin=pmin, pmax=pmax)
+    log_prior=cl.LogPrior(pmin=pmin, pmax=pmax, npl=args.nplanets, nobs=len(args.rvs))
 
     sampler=PTSampler(log_likelihood, log_prior, nthreads=args.nthreads)
 

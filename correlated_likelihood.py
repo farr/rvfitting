@@ -33,14 +33,16 @@ def generate_covariance(ts, sigma0, tau):
 class LogPrior(object):
     """Log of the prior function."""
 
-    def __init__(self, pmin=None, pmax=None):
+    def __init__(self, pmin=None, pmax=None, npl=1, nobs=1):
         """Initialize with the given bounds on the priors."""
 
         self._pmin = pmin
         self._pmax = pmax
+        self._npl = npl
+        self._nobs = nobs
 
     def __call__(self, p):
-        p = params.Parameters(p, npl=self._pmin.npl, nobs=self._pmin.nobs)
+        p = params.Parameters(p, npl=self._npl, nobs=self._nobs)
 
         if self._pmin is None:
             self._pmin = 0.0*p
@@ -109,7 +111,7 @@ class LogLikelihood(object):
         ll=0.0
 
         for t, rvobs, V, sigma0, tau in zip(self.ts, self.rvs, p.V, p.sigma0, p.tau):
-            if p.npl == 0:
+            if npl == 0:
                 rvmodel=np.zeros_like(t)
             else:
                 rvmodel=np.sum(rv.rv_model(t, p), axis=0)
