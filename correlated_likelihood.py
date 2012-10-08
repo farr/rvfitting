@@ -175,4 +175,35 @@ def generate_initial_sample(p, n):
         samps.append(params.Parameters(V=V,sigma0=sigma0,tau=tau,K=K,n=nn,chi=chi,e=e,omega=omega))
 
     return np.array(samps)
+
+def recenter_samples(ts, chains, logls, sigmafactor=0.1):
+    """Generates a suite of samples around the maximum likelihood
+    point in chains, with a reasonable error distribution."""
+
+    sf=sigmafactor
+
+    T=ts[-1]-ts[0]
+    
+    ibest=np.argmax(logls)
+    p0=params.Parameters(np.reshape(chains, (-1, chains.shape[-1]))[ibest, :])
+
+    ncycle=T/p0.P
+    ncorr=T/p0.tau
+    nobs=len(ts)
+
+    samples=params.Parameters(np.copy(chains))
+
+    assert samples.npl == 1, 'require exactly one planet'
+    assert samples.nobs == 1, 'require exactly one observatory'
+
+    samples.V = np.random.normal(loc=p0.V, scale=sf*p0.sigma0/np.sqrt(nobs), size=samples.V.shape)
+    samples.sigma0 = np.random.lognormal(mean=np.log(p0.sigma0), sigma=sf/np.sqrt(ncorr), size=samples.sigma0.shape)
+    samples.tau = np.random.lognormal(mean=np.log(p0.tau), sigma=sf/np.sqrt(ncorr), size=samples.tau.shape)
+    samples.K = np.random.normal(loc=p0.K, scale=sf*p0.K/np.sqrt(nobs), size=samples.K.shape)
+    samples.n = np.random.lognormal(mean=np.log(p0.n), sigma=sf/np.sqrt(ncycle), size=samples.n.shape)
+    samples.chi = np.random.lognormal(mean=np.log(p0.chi), sigma=sf/np.sqrt(ncycle), size=samples.chi.shape)
+    samples.e = np.random.lognormal(mean=np.log(p0.e), sigma=sf/np.sqrt(ncycle), size=samples.e.shape)
+    samples.omega = np.random.lognormal(mean=np.log(p0.omega), sigma=sf/np.sqrt(ncycle), size=samples.omega.shape)
+
+    return samples
     
