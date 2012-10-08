@@ -224,7 +224,7 @@ def thermodynamic_log_evidence(logls):
     betas=exponential_beta_ladder(ntemp)
     betas=np.concatenate((betas, np.array([0.0])))
 
-    return np.sum(mean_logls*np.diff(betas))
+    return -np.sum(mean_logls*np.diff(betas))
 
 def burned_in_samples(pts, fburnin=0.1):
     """Returns the samples from pts after an initial burnin
