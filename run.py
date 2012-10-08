@@ -57,7 +57,7 @@ if __name__ == '__main__':
         logls=np.array(logls)
         logps=np.array(logps)
     except:
-        pts=cl.generate_initial_sample(ts, rvs, args.ntemps, args.nwalkers)
+        pts=cl.generate_initial_sample(ts, rvs, args.ntemps, args.nwalkers, nobs=len(args.rvs), npl=args.nplanets)
         logls=None
         logps=None
 

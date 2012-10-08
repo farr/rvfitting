@@ -11,7 +11,7 @@ class Parameters(np.ndarray):
         planets."""
 
         assert nobs >= 1, 'must have at least one observatory'
-        assert npl >= 1, 'must have at least one planet'
+        assert npl >= 0, 'must have nonnegative number of planets'
         assert arr is None or arr.shape[-1] == 3*nobs+5*npl, 'final array dimensions must match 3*nobs + 5*npl'
 
         if arr is None:

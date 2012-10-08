@@ -38,6 +38,7 @@ def rv_model(ts, ps):
     shape (Npl, Nts)."""
 
     rvs=np.zeros((ps.npl, ts.shape[0]))
+
     for i,(K,e,omega,chi,n) in enumerate(zip(ps.K, ps.e, ps.omega, ps.chi, ps.n)):
 
         ecw=e*np.cos(omega)

@@ -40,7 +40,7 @@ class LogPrior(object):
         self._pmax = pmax
 
     def __call__(self, p):
-        p = params.Parameters(p)
+        p = params.Parameters(p, npl=self._pmin.npl, nobs=self._pmin.nobs)
 
         if self._pmin is None:
             self._pmin = 0.0*p
@@ -62,25 +62,25 @@ class LogPrior(object):
 
         # Jeffreys scale prior on sigma0
         for s in p.sigma0:
-            pr -= np.log(s)
+            pr -= np.sum(np.log(s))
 
         # Jeffreys scale prior on tau
         for t in p.tau:
-            pr -= np.log(t)
+            pr -= np.sum(np.log(t))
 
         # Jeffreys scale prior on K
         for k in p.K:
-            pr -= np.log(k)
+            pr -= np.sum(np.log(k))
 
         # Jeffreys scale prior on n
         for n in p.n:
-            pr -= np.log(n)
+            pr -= np.sum(np.log(n))
 
         # Uniform prior on chi
 
         # Thermal prior on e
         for e in p.e:
-            pr += np.log(e)
+            pr += np.sum(np.log(e))
 
         # Uniform prior on omega
 
@@ -101,12 +101,18 @@ class LogLikelihood(object):
         return self._rvs
 
     def __call__(self, p):
-        p = params.Parameters(p)
+        nobs=len(self.rvs)
+        npl=(p.shape[-1]-3*nobs)/5
+
+        p = params.Parameters(p, nobs=nobs, npl=npl)
 
         ll=0.0
 
         for t, rvobs, V, sigma0, tau in zip(self.ts, self.rvs, p.V, p.sigma0, p.tau):
-            rvmodel=np.sum(rv.rv_model(t, p), axis=0)
+            if p.npl == 0:
+                rvmodel=np.zeros_like(t)
+            else:
+                rvmodel=np.sum(rv.rv_model(t, p), axis=0)
 
             residual=rvobs-rvmodel-V
             cov=generate_covariance(t, sigma0, tau)
@@ -138,14 +144,15 @@ def prior_bounds_from_times(npl, ts):
     pmin.tau = min_dt/10.0
     pmax.tau = 10.0*max_obst
 
-    pmin.n = 2.0*np.pi/(10.0*max_obst)
-    pmax.n = 2.0*np.pi/(min_dt/10.0)
+    if npl >= 1:
+        pmin.n = 2.0*np.pi/(10.0*max_obst)
+        pmax.n = 2.0*np.pi/(min_dt/10.0)
 
-    pmax.chi = 1.0
-
-    pmax.e = 1.0
+        pmax.chi = 1.0
+        
+        pmax.e = 1.0
     
-    pmax.omega = 2.0*np.pi
+        pmax.omega = 2.0*np.pi
 
     return pmin, pmax
 
@@ -171,11 +178,12 @@ def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
     samps.V = nr.normal(loc=mu, scale=sig/sqrtN, size=(ntemps,nwalkers,nobs))
     samps.sigma0 = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
     samps.tau = nr.uniform(low=dtmin, high=T, size=(ntemps, nwalkers,nobs))
-    samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
-    samps.n = nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl))
-    samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
-    samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
-    samps.omega = nr.uniform(low=0.0, high=2.0*np.pi, size=(ntemps, nwalkers,npl))
+    if npl >= 1:
+        samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
+        samps.n = nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl))
+        samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
+        samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
+        samps.omega = nr.uniform(low=0.0, high=2.0*np.pi, size=(ntemps, nwalkers,npl))
 
     return samps
 
