@@ -22,11 +22,15 @@ def load_data(files):
     return ts,rvs
 
 def overwrite(file, data):
-    with tempfile.NamedTemporaryFile(dir=os.path.dirname(file), delete=False) as out:
-        name=out.name
-        np.savetxt(out, np.reshape(data, (-1, data.shape[-1])))
+    if data is not None:
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(file), delete=False) as out:
+            name=out.name
+            np.savetxt(out, np.reshape(data, (-1, data.shape[-1])))
 
-    os.rename(name, file)
+        os.rename(name, file)
+    else:
+        with open(file, 'w') as out:
+            pass
 
 if __name__ == '__main__':
     parser=ArgumentParser()
@@ -42,26 +46,27 @@ if __name__ == '__main__':
     parser.add_argument('--ntemps', metavar='N', type=int, default=10, help='number of temperatures')
     parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers')
 
-    parser.add_argument('--reset', default=False, action='store_const', const=True, help='overwrite contents of output with new samples')
+    parser.add_argument('--reset', default=False, const=True, action='store_const', help='reset the chain')
 
     parser.add_argument('--rvs', metavar='FILE', required=True, default=[], action='append', help='file of times and RV\'s')
 
     args=parser.parse_args()
 
     pts=np.loadtxt(args.output)
-    logls=np.loadtxt(args.likelihood)
-    logps=np.loadtxt(args.prior)
-
-    # Reshape
     pts=np.reshape(pts, (-1, args.ntemps, args.nwalkers, pts.shape[1]))[-1, :,:,:]
-    logls=np.reshape(logls, (-1, args.ntemps, args.nwalkers))[-1,:,:]
-    logps=np.reshape(logps, (-1, args.ntemps, args.nwalkers))[-1,:,:]
 
-    if args.reset:
-        overwrite(args.output, pts)
-        overwrite(args.likelihood, logls)
-        overwrite(args.prior, logps)
-    
+    try:
+        logls=np.loadtxt(args.likelihood)
+        logls=np.reshape(logls, (-1, args.ntemps, args.nwalkers))[-1,:,:]
+    except:
+        logls=None
+
+    try:
+        logps=np.loadtxt(args.prior)
+        logps=np.reshape(logps, (-1, args.ntemps, args.nwalkers))[-1,:,:]
+    except:
+        logps=None
+
     ts, rvs=load_data(args.rvs)
 
     pmin,pmax=cl.prior_bounds_from_times(args.nplanets, ts)
@@ -71,12 +76,24 @@ if __name__ == '__main__':
 
     sampler=PTSampler(log_likelihood, log_prior, nthreads=args.nthreads)
 
-    start_logl=np.amax(logls)
-
     print 'max(log(L)) med(log(L)) min(log(L)) <afrac> acorr(<log(L)>)'
     sys.stdout.flush()
 
-    mean_logls=[np.mean(logls[0,:])]
+    if logls is not None:
+        mean_logls=[np.mean(logls[0,:])]
+    else:
+        mean_logls=[]
+
+    # If no logls, logps, reset.
+    if logls is None or logps is None:
+        overwrite(args.output, None)
+        overwrite(args.likelihood, None)
+        overwrite(args.prior, None)
+    elif args.reset:
+        overwrite(args.output, pts)
+        overwrite(args.likelihood, pts)
+        overwrite(args.prior, pts)
+
     while True:
         for pts, logls, logps, afrac in sampler.samples(pts, logls=logls, logps=logps, niters=args.nthin):
             pass
