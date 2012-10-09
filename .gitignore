@@ -1,3 +1,6 @@
 *~
 *.pyc
 .DS_store
+build
+*.c
+*.so
