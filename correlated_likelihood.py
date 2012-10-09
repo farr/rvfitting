@@ -159,8 +159,8 @@ def prior_bounds_from_data(npl, ts, rvs):
     pmax.tau = 10.0*max_obst
 
     if npl >= 1:
-        pmin.n = 2.0*np.pi/(10.0*max_obst)
-        pmax.n = 2.0*np.pi/(min_dt/10.0)
+        pmin.n = 2.0*np.pi/(max_obst)
+        pmax.n = 2.0*np.pi/(min_dt)
 
         pmin.K = min_rv_mean_error(rvs)
 
