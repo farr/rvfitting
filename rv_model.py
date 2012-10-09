@@ -33,23 +33,19 @@ def kepler_solve_ea(n, e, t):
     # Method taken from Danby, J.M.A.  The Solution of Kepler's
     # Equations - Part Three.  Celestial Mechanics, Vol. 40,
     # pp. 303-312, 1987.
-    E = np.fmod(M + 0.85*e, 2.0*np.pi)
+    E=np.zeros_like(M)
+    E[M<np.pi]=M[M<np.pi] + 0.85*e
+    E[M>np.pi]=M[M>np.pi] - 0.85*e
 
     f = kepler_f(M, E, e)
 
     while np.any(np.abs(f) > 1e-8):
-        fp=kepler_fp(E,e)
-        fpp=kepler_fpp(E,e)
-        fppp=kepler_fppp(E,e)
+        fp = kepler_fp(E,e)
+        disc = np.sqrt(np.abs(16.0*fp*fp - 20.0*f*kepler_fpp(E,e)))
+        d = -5.0*f / (fp + np.sign(fp)*disc)
 
-        d = -f/fp
-        ds = -f/(fp+0.5*d*fpp)
-        
-        dk = -f/(fp + 0.5*ds*fpp + (1.0/6.0)*ds*ds*fppp)
-
-        E += dk
-        E = np.fmod(E, 2.0*np.pi)
-        f = kepler_f(M, E, e)
+        E += d
+        f = kepler_f(M,E,e)
 
     return E
     
