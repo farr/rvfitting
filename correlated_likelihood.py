@@ -50,9 +50,10 @@ class LogPrior(object):
 
         if self._pmax is None:
             self._pmax = p + float('inf')
-            self._pmax.chi = 1.0
-            self._pmax.e = 1.0
-            self._pmax.omega = 2.0*np.pi
+            if npl > 0:
+                self._pmax.chi = 1.0
+                self._pmax.e = 1.0
+                self._pmax.omega = 2.0*np.pi
 
         # Check bounds
         if np.any(p <= self._pmin) or np.any(p >= self._pmax):
@@ -123,7 +124,18 @@ class LogLikelihood(object):
 
         return ll
             
-def prior_bounds_from_times(npl, ts):
+def min_rv_mean_error(rvs):
+    """Returns the minimum error across all observations on the mean
+    of the radial velocities."""
+
+    muerr=float('inf')
+    for rv in rvs:
+        err=np.std(rv)/np.sqrt(len(rv))
+        muerr=min(err,muerr)
+
+    return muerr
+
+def prior_bounds_from_data(npl, ts, rvs):
     """Returns conservative prior bounds (pmin, pmax) given sampling
     times for each observatory."""
 
@@ -149,6 +161,8 @@ def prior_bounds_from_times(npl, ts):
     if npl >= 1:
         pmin.n = 2.0*np.pi/(10.0*max_obst)
         pmax.n = 2.0*np.pi/(min_dt/10.0)
+
+        pmin.K = min_rv_mean_error(rvs)
 
         pmax.chi = 1.0
         
