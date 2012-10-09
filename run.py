@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     ts, rvs=load_data(args.rvs)
 
-    pmin,pmax=cl.prior_bounds_from_times(args.nplanets, ts)
+    pmin,pmax=cl.prior_bounds_from_data(args.nplanets, ts, rvs)
 
     try:
         pts=[]
