@@ -66,6 +66,10 @@ def kepler_solve_ta(n, e, t):
     return f
 
 def rv_model(ts, ps):
+    """Returns the radial velocity measurements associated with the
+    planets in parameters ps at times ts.  The returned array has
+    shape (Npl, Nts)."""
+
     assert ts.ndim == 1, 'ts must be one-dimensional'
 
     return kp.rv_model(ts, ps.K, ps.e, ps.omega, ps.chi, ps.n)
