@@ -11,12 +11,32 @@ def kepler_solve_ea(n, e, t):
     """Solve for the eccentric anomaly for an orbit with mean motion
     n, eccentricity e, and time since pericenter passage t."""
 
+    t=np.atleast_1d(t)
+
     M = np.fmod(n*t, 2.0*np.pi)
 
-    while M < 0.0:
-        M += 2.0*np.pi
+    while np.any(M < 0.0):
+        M[M<0.0] += 2.0*np.pi
 
-    return so.brentq(lambda E: kepler_f(M, E, e), 0.0, 2.0*np.pi, xtol=1e-8)
+    Emin=np.zeros_like(t)
+    Emax=np.zeros_like(t)+2.0*np.pi
+    fEmin=kepler_f(M, Emin, e)
+    fEmax=kepler_f(M, Emax, e)
+
+    while np.any(Emax-Emin > 1e-8):
+        Emid = 0.5*(Emin+Emax)
+        fEmid=kepler_f(M, Emid, e)
+
+        low_sel=(fEmid*fEmin < 0)
+        high_sel= (fEmid*fEmax < 0)
+
+        fEmax[low_sel] = fEmid[low_sel]
+        Emax[low_sel] = Emid[low_sel]
+
+        fEmin[high_sel] = fEmid[high_sel]
+        Emin[high_sel] = Emid[high_sel]
+
+    return (Emin*fEmax - Emax*fEmin)/(fEmax-fEmin)        
 
 def kepler_solve_ta(n, e, t):
     """Solve for the true anomaly of a Keplerian orbit with mean
