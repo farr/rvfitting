@@ -7,6 +7,18 @@ def kepler_f(M, E, e):
     eccentric anomaly E and eccentricity e."""
     return E - e*np.sin(E) - M
 
+def kepler_fp(E, e):
+    """Returns the derivative of kepler_f with respect to E."""
+    return 1.0 - e*np.cos(E)
+
+def kepler_fpp(E, e):
+    """Returns the second derivative of kepler_f with respect to E."""
+    return e*np.sin(E)
+
+def kepler_fppp(E, e):
+    """Returns the third derivative of kepler_f with respect to E."""
+    return e*np.cos(E)
+
 def kepler_solve_ea(n, e, t):
     """Solve for the eccentric anomaly for an orbit with mean motion
     n, eccentricity e, and time since pericenter passage t."""
@@ -18,25 +30,29 @@ def kepler_solve_ea(n, e, t):
     while np.any(M < 0.0):
         M[M<0.0] += 2.0*np.pi
 
-    Emin=np.zeros_like(t)
-    Emax=np.zeros_like(t)+2.0*np.pi
-    fEmin=kepler_f(M, Emin, e)
-    fEmax=kepler_f(M, Emax, e)
+    # Method taken from Danby, J.M.A.  The Solution of Kepler's
+    # Equations - Part Three.  Celestial Mechanics, Vol. 40,
+    # pp. 303-312, 1987.
+    E = np.fmod(M + 0.85*e, 2.0*np.pi)
 
-    while np.any(Emax-Emin > 1e-8):
-        Emid = 0.5*(Emin+Emax)
-        fEmid=kepler_f(M, Emid, e)
+    f = kepler_f(M, E, e)
 
-        low_sel=(fEmid*fEmin < 0)
-        high_sel= (fEmid*fEmax < 0)
+    while np.any(np.abs(f) > 1e-8):
+        fp=kepler_fp(E,e)
+        fpp=kepler_fpp(E,e)
+        fppp=kepler_fppp(E,e)
 
-        fEmax[low_sel] = fEmid[low_sel]
-        Emax[low_sel] = Emid[low_sel]
+        d = -f/fp
+        ds = -f/(fp+0.5*d*fpp)
+        
+        dk = -f/(fp + 0.5*ds*fpp + (1.0/6.0)*ds*ds*fppp)
 
-        fEmin[high_sel] = fEmid[high_sel]
-        Emin[high_sel] = Emid[high_sel]
+        E += dk
+        E = np.fmod(E, 2.0*np.pi)
+        f = kepler_f(M, E, e)
 
-    return (Emin*fEmax - Emax*fEmin)/(fEmax-fEmin)        
+    return E
+    
 
 def kepler_solve_ta(n, e, t):
     """Solve for the true anomaly of a Keplerian orbit with mean
@@ -47,8 +63,8 @@ def kepler_solve_ta(n, e, t):
     f = 2.0*np.arctan(np.sqrt((1.0+e)/(1.0-e))*np.tan(E/2.0))
 
     # Get positive f, either [0, pi/2] or [3pi/2, 2pi]
-    if f < 0.0:
-        f += 2.0*np.pi
+    if np.any(f < 0.0):
+        f[f<0.0] += 2.0*np.pi
 
     return f
 
@@ -66,7 +82,7 @@ def rv_model(ts, ps):
 
         t0 = -chi*2.0*np.pi/n
 
-        fs=np.array([kepler_solve_ta(n, e, (t-t0)) for t in ts])
+        fs=kepler_solve_ta(n, e, (ts-t0))
 
         rvs[i,:]=K*(np.sin(fs + omega) + ecw)
 
