@@ -18,17 +18,17 @@ def correlated_gaussian_loglikelihood(xs, means, cov):
 
     return -np.log(2.0*np.pi)*(ndim/2.0)-0.5*np.sum(np.log(lambdas))-np.sum(ds)
 
-def generate_covariance(ts, sigma0, tau):
+def generate_covariance(ts, sigma, tau):
     """Generates a covariance matrix according to an exponential
     autocovariance: cov(t_i, t_j) =
-    sigma0*sigma0*exp(-|ti-tj|/tau)."""
+    sigma*sigma*exp(-|ti-tj|/tau)."""
 
     ndim = ts.shape[0]
 
     tis = np.tile(np.reshape(ts, (-1, 1)), (1, ndim))
     tjs = np.tile(ts, (ndim, 1))
 
-    return sigma0*sigma0*np.exp(-np.abs(tis-tjs)/tau)
+    return sigma*sigma*np.exp(-np.abs(tis-tjs)/tau)
 
 class LogPrior(object):
     """Log of the prior function."""
@@ -63,8 +63,8 @@ class LogPrior(object):
 
         # Uniform prior on velocity offset
 
-        # Jeffreys scale prior on sigma0
-        for s in p.sigma0:
+        # Jeffreys scale prior on sigma
+        for s in p.sigma:
             pr -= np.sum(np.log(s))
 
         # Jeffreys scale prior on tau
@@ -111,14 +111,14 @@ class LogLikelihood(object):
 
         ll=0.0
 
-        for t, rvobs, V, sigma0, tau in zip(self.ts, self.rvs, p.V, p.sigma0, p.tau):
+        for t, rvobs, V, sigma, tau in zip(self.ts, self.rvs, p.V, p.sigma, p.tau):
             if npl == 0:
                 rvmodel=np.zeros_like(t)
             else:
                 rvmodel=np.sum(rv.rv_model(t, p), axis=0)
 
             residual=rvobs-rvmodel-V
-            cov=generate_covariance(t, sigma0, tau)
+            cov=generate_covariance(t, sigma, tau)
 
             ll += correlated_gaussian_loglikelihood(residual, np.zeros_like(residual), cov)
 
@@ -192,7 +192,7 @@ def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
     samps=params.Parameters(arr=np.zeros((ntemps, nwalkers, 3*nobs+5*npl)), nobs=nobs, npl=npl)
 
     samps.V = nr.normal(loc=mu, scale=sig/sqrtN, size=(ntemps,nwalkers,nobs))
-    samps.sigma0 = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
+    samps.sigma = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
     samps.tau = nr.uniform(low=dtmin, high=T, size=(ntemps, nwalkers,nobs))
     if npl >= 1:
         samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
@@ -223,8 +223,8 @@ def recenter_samples(ts, chains, logls, sigmafactor=0.1):
     assert samples.npl == 1, 'require exactly one planet'
     assert samples.nobs == 1, 'require exactly one observatory'
 
-    samples.V = np.random.normal(loc=p0.V, scale=sf*p0.sigma0/np.sqrt(nobs), size=samples.V.shape)
-    samples.sigma0 = np.random.lognormal(mean=np.log(p0.sigma0), sigma=sf/np.sqrt(ncorr), size=samples.sigma0.shape)
+    samples.V = np.random.normal(loc=p0.V, scale=sf*p0.sigma/np.sqrt(nobs), size=samples.V.shape)
+    samples.sigma = np.random.lognormal(mean=np.log(p0.sigma), sigma=sf/np.sqrt(ncorr), size=samples.sigma.shape)
     samples.tau = np.random.lognormal(mean=np.log(p0.tau), sigma=sf/np.sqrt(ncorr), size=samples.tau.shape)
     samples.K = np.random.normal(loc=p0.K, scale=sf*p0.K/np.sqrt(nobs), size=samples.K.shape)
     samples.n = np.random.lognormal(mean=np.log(p0.n), sigma=sf/np.sqrt(ncycle), size=samples.n.shape)
