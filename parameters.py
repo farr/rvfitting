@@ -58,20 +58,23 @@ class Parameters(np.ndarray):
     @property
     def header(self):
         """A suitable header (including newline) to describe parameter data."""
-        if self.nobs == 1 and self.npl == 1:
-            return '# V sigma0 tau K n chi e omega\n'
+        if self.nobs == 1:
+            header='# V sigma0 tau '
         else:
-            header = '# '
-
+            header='# '
             for i in range(self.nobs):
                 header += 'V%d sigma0%d tau%d '%(i,i,i)
 
+        if self.npl == 0:
+            header = header[:-1] + '\n'
+        elif self.npl == 1:
+            header += 'K n chi e omega\n'
+        else:
             for i in range(self.npl):
-                header += 'K n chi e omega '%(i,i,i,i,i)
-
-            header[-1]='\n'
-
-            return header
+                header += 'K%d n%d chi%d e%d omega%d '%(i,i,i,i,i)
+            header = header[:-1] + '\n'
+        
+        return header
 
     @property
     def V(self):
