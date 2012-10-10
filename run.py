@@ -63,7 +63,7 @@ if __name__ == '__main__':
         p=Parameters(npl=args.nplanets, nobs=len(args.rvs))
         header = p.header[0] + ' logl logp' + p.header[1:]
         for i in range(args.ntemps):
-            with open('%s.%02d.txt.gz'%(args.prefix, i), 'w') as out:
+            with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'w') as out:
                 out.write(header)
 
     log_likelihood=cl.LogLikelihood(ts, rvs)
