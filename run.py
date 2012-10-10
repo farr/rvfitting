@@ -60,6 +60,11 @@ if __name__ == '__main__':
         pts=cl.generate_initial_sample(ts, rvs, args.ntemps, args.nwalkers, nobs=len(args.rvs), npl=args.nplanets)
         logls=None
         logps=None
+        p=Parameters(npl=args.nplanets, nobs=len(args.rvs))
+        header = p.header[0] + ' logl logp' + p.header[1:]
+        for i in range(args.ntemps):
+            with open('%s.%02d.txt.gz'%(args.prefix, i), 'w') as out:
+                out.write(header)
 
     log_likelihood=cl.LogLikelihood(ts, rvs)
     log_prior=cl.LogPrior(pmin=pmin, pmax=pmax, npl=args.nplanets, nobs=len(args.rvs))
