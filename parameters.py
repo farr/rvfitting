@@ -57,13 +57,14 @@ class Parameters(np.ndarray):
 
     @property
     def header(self):
-        """A suitable header (including newline) to describe parameter data."""
+        """A suitable header to describe parameter data, including
+        comment marker ('#') and newline."""
         if self.nobs == 1:
-            header='# V sigma0 tau '
+            header='# V sigma tau '
         else:
             header='# '
             for i in range(self.nobs):
-                header += 'V%d sigma0%d tau%d '%(i,i,i)
+                header += 'V%d sigma%d tau%d '%(i,i,i)
 
         if self.npl == 0:
             header = header[:-1] + '\n'
@@ -74,6 +75,40 @@ class Parameters(np.ndarray):
                 header += 'K%d n%d chi%d e%d omega%d '%(i,i,i,i,i)
             header = header[:-1] + '\n'
         
+        return header
+
+    @property
+    def tex_header(self):
+        """A list of latex strings describing each variable.  Does not
+        include formula delimiters ('$')."""
+
+        header=[]
+        if self.nobs == 1:
+            header.append('V')
+            header.append(r'\sigma')
+            header.append(r'\tau')
+        else:
+            for i in range(self.nobs):
+                header.append('V_{%d}'%i)
+                header.append(r'\sigma_{%d}'%i)
+                header.append(r'\tau_{%d}'%i)
+
+        if self.npl == 0:
+            pass
+        elif self.npl == 1:
+            header.append('K')
+            header.append('n')
+            header.append(r'\chi')
+            header.append(r'e')
+            header.append(r'\omega')
+        else:
+            for i in range(self.npl):
+                header.append('K_{%d}'%i)
+                header.append('n_{%d}'%i)
+                header.append(r'\chi_{%d}'%i)
+                header.append(r'e_{%d}'%i)
+                header.append(r'\omega_{%d}'%i)
+
         return header
 
     @property
