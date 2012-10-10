@@ -5,7 +5,7 @@ class Parameters(np.ndarray):
     observing a single planet."""
 
     def __new__(subclass, arr=None, nobs=1, npl=1, 
-                V=None, sigma0=None, tau=None, K=None, n=None, chi=None, e=None, omega=None):
+                V=None, sigma=None, tau=None, K=None, n=None, chi=None, e=None, omega=None):
         """Create a parameter object out of the given array (or a
         fresh array, if none given), with nobs observatories and npl
         planets."""
@@ -25,8 +25,8 @@ class Parameters(np.ndarray):
         if V is not None:
             obj.V = V
 
-        if sigma0 is not None:
-            obj.sigma0 = sigma0
+        if sigma is not None:
+            obj.sigma = sigma
 
         if tau is not None:
             obj.tau = tau
@@ -121,12 +121,12 @@ class Parameters(np.ndarray):
         self[...,0:3*self.nobs:3] = vs
        
     @property
-    def sigma0(self):
+    def sigma(self):
         """The variance at zero lag of the telescope errors."""
         return np.array(self[...,1:3*self.nobs:3])
 
-    @sigma0.setter
-    def sigma0(self, s0):
+    @sigma.setter
+    def sigma(self, s0):
         self[...,1:3*self.nobs:3] = s0
         
     @property
