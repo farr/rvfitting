@@ -4,9 +4,35 @@ from argparse import ArgumentParser
 import matplotlib.pyplot as pp
 import numpy as np
 import os
-import parameters as pa
+import parameters as pr
 import ptsampler as pt
 import scipy.stats as ss
+
+def do_plot(ichain, name, tname, true, outdir):
+    xs=np.linspace(np.amin(ichain), np.amax(ichain), 1000)
+        
+    pp.subplot(2,1,1)
+    pp.plot(xs, ss.gaussian_kde(ichain.flatten())(xs))
+
+    if true is not None:
+        pp.axvline(true, color='k')
+
+    pp.xlabel('$' + tname + '$')
+    pp.ylabel(r'$p\left(' + tname + r'\right)$')
+    pp.title('$' + tname + '$')
+
+    pp.subplot(2,1,2)
+    for j in range(ichain.shape[1]):
+        pp.plot(ichain[:,j], ',')
+
+    pp.ylabel('$' + tname + '$')
+    pp.xlabel('Iteration Number')
+
+    if outdir is not None:
+        pp.savefig(os.path.join(args.outdir, name + '.pdf'))
+
+    pp.show()
+    
 
 if __name__ == '__main__':
     parser=ArgumentParser()
@@ -18,30 +44,27 @@ if __name__ == '__main__':
     parser.add_argument('--fburnin', metavar='F', default=0.1, type=float, help='fraction to discard as burned in')
 
     parser.add_argument('--nwalkers', metavar='N', default=100, type=int, help='number of ensemble walkers')
-    parser.add_argument('--ntemps', metavar='N', default=10, type=int, help='number of temperatures')
 
     args=parser.parse_args()
 
     pts=np.loadtxt(args.input)
 
     # (Nsamples, Ntemps, Nwalkers, Ndim)
-    pts=np.reshape(pts, (-1, args.ntemps, args.nwalkers, pts.shape[-1]))
-    
-    # Only want the zero-temp chain
-    pts=pts[:, 0, :, :]
+    pts=np.reshape(pts, (-1, args.nwalkers, pts.shape[-1]))
 
-    # Discard burnin
-    pts=pt.burned_in_samples(pts, fburnin=args.fburnin)
+    logls=pts[..., 0]
+    chain=pr.Parameters(pts[..., 2:])
 
-    # Decorrelate
-    pts=pt.decorrelated_samples(pts)
+    logls=pt.burned_in_samples(logls, fburnin=args.fburnin)
+    chain=pt.decorrelated_samples(pt.burned_in_samples(chain, fburnin=args.fburnin))
 
-    names=pa.Parameters(arr=pts[0,0,:]).header.split()[1:]
+    names=chain.header.split()[1:]
+    tnames=chain.tex_header
 
     if args.trueparams is not None:
-        true=np.loadtxt(args.trueparams)
+        true=pr.Parameters(np.loadtxt(args.trueparams))
     else:
-        true=None
+        true=[None for i in range(chain.shape[-1])]
 
     try:
         if args.outdir is not None:
@@ -50,27 +73,48 @@ if __name__ == '__main__':
         # Ignore errors
         pass
 
-    for i in range(pts.shape[-1]):
-        ipts=pts[:,:,i]
-        xs=np.linspace(np.amin(ipts), np.amax(ipts), 1000)
-        
-        pp.subplot(2,1,1)
-        pp.plot(xs, ss.gaussian_kde(ipts.flatten())(xs))
+    # logls
+    for j in range(logls.shape[1]):
+        pp.plot(logls[:,j], ',')
+    pp.title(r'$\log \mathcal{L}$')
+    pp.ylabel(r'$\log \mathcal{L}$')
+    pp.xlabel('Iteration Number')
+    if args.outdir is not None:
+        pp.savefig(os.path.join(args.outdir, 'logl.pdf'))
+    pp.show()
 
-        if true is not None:
-            pp.axvline(true[i], color='k')
+    i = 0
+    for iobs in range(chain.nobs):
+        do_plot(chain.V[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
 
-        pp.xlabel(names[i])
-        pp.ylabel(r'$p\left( \mathrm{' + names[i] + r'} \right)$')
-        pp.title(names[i])
+        do_plot(chain.sigma[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
 
-        pp.subplot(2,1,2)
-        pp.plot(ipts.flatten(), ',')
+        do_plot(chain.tau[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
 
-        pp.ylabel(names[i])
-        pp.title('Chain evolution')
+    for ipl in range(chain.npl):
+        do_plot(chain.K[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
 
-        if args.outdir is not None:
-            pp.savefig(os.path.join(args.outdir, names[i] + '.pdf'))
+        do_plot(chain.n[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        if true[i] is not None:
+            ptrue=2.0*np.pi/true[i]
+        else:
+            ptrue=None
+        do_plot(chain.P[...,iobs], 
+                names[i].replace('n', 'P'),
+                tnames[i].replace('n', 'P'),
+                ptrue,
+                args.outdir)
+        i += 1
 
-        pp.show()
+        do_plot(chain.chi[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
+
+        do_plot(chain.e[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
+
+        do_plot(chain.omega[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        i += 1
