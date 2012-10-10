@@ -19,12 +19,20 @@ if __name__ == '__main__':
     inlogls=[]
     for i in range(args.ntemps):
         inlogls.append(np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i))[:,0])
+
+    # What if we have a few more outputs in some files than in others?
+    minlen=reduce(min, [logl.shape[0] for logl in inlogls])
+    inlogls=[logl[:minlen] for logl in inlogls]
+
+    # Now ordered as (Nsamples*Nwalkers, Nchains)
     inlogls=np.transpose(np.array(inlogls))
 
+    # Resahpe to (Nsamples, Nchains, Nwalkers)
     logls=np.zeros((inlogls.shape[0]/args.nwalkers, args.ntemps, args.nwalkers))
     for i in range(args.ntemps):
         logls[:, i, :] = np.reshape(inlogls[:,i], (-1, args.nwalkers))
 
+    # burn in...
     logls=logls[int(args.fburnin*logls.shape[0])+1:, ...]
 
     print pt.thermodynamic_log_evidence(logls)
