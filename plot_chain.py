@@ -7,25 +7,49 @@ import os
 import parameters as pr
 import ptsampler as pt
 import scipy.stats as ss
+import scipy.stats.mstats as ssm
 
-def do_plot(ichain, name, tname, true, outdir):
+def do_plot(ichain, name, tname, true, outdir, mmin=None, mmax=None, periodic=False):
     xs=np.linspace(np.amin(ichain), np.amax(ichain), 1000)
         
+    mu=np.mean(ichain.flatten())
+    q90=ssm.mquantiles(ichain.flatten(), prob=[0.05, 0.95], alphap=1.0/3.0, betap=1.0/3.0)-mu
+
+    kde=ss.gaussian_kde(ichain.flatten())
+
+    ys=kde(xs)
+
+    if not periodic:
+        if mmin is not None:
+            ys += kde(2.0*mmin - xs)
+        if mmax is not None:
+            ys += kde(2.0*mmax - xs)
+    else:
+        dx = mmax - mmin
+        ys += kde(xs - dx)
+        ys += kde(xs + dx)
+
     pp.subplot(2,1,1)
-    pp.plot(xs, ss.gaussian_kde(ichain.flatten())(xs))
+    pp.plot(xs, ys)
 
     if true is not None:
         pp.axvline(true, color='k')
 
     pp.xlabel('$' + tname + '$')
     pp.ylabel(r'$p\left(' + tname + r'\right)$')
-    pp.title('$' + tname + '$')
+    pp.title('$' + tname + '$: $%g^{+%g}_{%g}$'%(mu, q90[1], q90[0]))
+
+    pp.axvline(mu)
+    pp.axvline(q90[0]+mu, linestyle='--')
+    pp.axvline(q90[1]+mu, linestyle='--')
 
     pp.subplot(2,1,2)
-    for j in range(ichain.shape[1]):
-        pp.plot(ichain[:,j], ',')
+    pp.plot(np.mean(ichain, axis=1))
 
-    pp.ylabel('$' + tname + '$')
+    if true is not None:
+        pp.axhline(true, color='k')
+
+    pp.ylabel(r'$\left \langle' + tname + r'\right \rangle $')
     pp.xlabel('Iteration Number')
 
     if outdir is not None:
@@ -74,10 +98,9 @@ if __name__ == '__main__':
         pass
 
     # logls
-    for j in range(logls.shape[1]):
-        pp.plot(logls[:,j], ',')
+    pp.plot(np.mean(logls, axis=1))
     pp.title(r'$\log \mathcal{L}$')
-    pp.ylabel(r'$\log \mathcal{L}$')
+    pp.ylabel(r'$\left \langle \log \mathcal{L} \right \rangle$')
     pp.xlabel('Iteration Number')
     if args.outdir is not None:
         pp.savefig(os.path.join(args.outdir, 'logl.pdf'))
@@ -88,17 +111,17 @@ if __name__ == '__main__':
         do_plot(chain.V[...,iobs], names[i], tnames[i], true[i], args.outdir)
         i += 1
 
-        do_plot(chain.sigma[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.sigma[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         i += 1
 
-        do_plot(chain.tau[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.tau[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         i += 1
 
     for ipl in range(chain.npl):
         do_plot(chain.K[...,iobs], names[i], tnames[i], true[i], args.outdir)
         i += 1
 
-        do_plot(chain.n[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.n[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         if true[i] is not None:
             ptrue=2.0*np.pi/true[i]
         else:
@@ -107,14 +130,15 @@ if __name__ == '__main__':
                 names[i].replace('n', 'P'),
                 tnames[i].replace('n', 'P'),
                 ptrue,
-                args.outdir)
+                args.outdir,
+                mmin=0.0)
         i += 1
 
-        do_plot(chain.chi[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.chi[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0, periodic=True)
         i += 1
 
-        do_plot(chain.e[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.e[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0)
         i += 1
 
-        do_plot(chain.omega[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.omega[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=2.0*np.pi, periodic=True)
         i += 1
