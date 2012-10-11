@@ -4,214 +4,166 @@ import multiprocessing as multi
 import numpy as np
 import numpy.random as nr
 
-class DEStep(object):
-    """Callable class that implements one step of differential
-    evolution for multiprocessing pool."""
+class PTPost(object):
+    """Wrapper for posterior used in emcee."""
+    
+    def __init__(self, logl, logp, beta):
+        """Initialize with given log-likelihood, log-prior, and beta = 1/T."""
 
-    def __init__(self, pts, logls, logps, beta, logl, logp):
-        """Init with given points (for de proposal), log-likelihoods,
-        log-priors, and beta (inverse temperature)."""
-        self.pts=pts
-        self.logls=logls
-        self.logps=logps
-        self.beta=beta
-        self.logl=logl
-        self.logp=logp
+        self._logl = logl
+        self._logp = logp
+        self._beta = beta
 
-    def __call__(self, i):
-        """Return a differentially-evolved new point for walker i."""
-        pts=self.pts
-        logls=self.logls
-        logps=self.logps
-        beta=self.beta
+    def __call__(self, x):
+        """Returns lnpost(x), lnlike(x) (the second value will be
+        treated as a blob by emcee), where lnpost(x) = beta*lnlike(x)
+        + lnprior(x)."""
 
-        nwalkers,ndim=pts.shape
+        lp = self._logp(x)
 
-        x=np.copy(pts[i,:])
-        lx=logls[i]
-        px=logps[i]
+        # If outside prior bounds, return 0.
+        if lp == float('-inf'):
+            return lp, lp
 
-        ii=nr.randint(nwalkers)
-        jj=nr.randint(nwalkers)
-        while jj == ii:
-            jj=nr.randint(nwalkers)
+        ll = self._logl(x)
 
-        if nr.rand() < 0.9:
-            dx=2.38/np.sqrt(2.0*ndim)*nr.randn()*(pts[jj,:]-pts[ii,:])
-        else:
-            dx=pts[jj,:]-pts[ii,:]
-
-        xnew=x+dx
-        pxnew=self.logp(xnew)
-
-        # Check for prior bounds
-        if pxnew == float('-inf'):
-            return x, lx, px
-
-        lxnew=self.logl(xnew)
-
-        lpaccept=beta*lxnew + pxnew - beta*lx - px
-
-        if lpaccept > 0 or np.log(nr.rand()) < lpaccept:
-            # Accept step:
-            return xnew, lxnew, pxnew
-        else:
-            # Reject step:
-            return x, lx, px
-
-class LogLLogP(object):
-    def __init__(self, pts, fn):
-        self.pts=pts
-        self.fn=fn
-
-    def __call__(self, j):
-        return self.fn(self.pts[j,:])
-
-class ChunkedMap(object):
-    def __init__(self, pool, chunksize):
-        self.pool = pool
-        self.chunksize = chunksize
-
-    def __call__(self, fn, iterable):
-        if self.pool is not None:
-            return self.pool.map(fn, iterable, chunksize=self.chunksize)
-        else:
-            return map(fn, iterable)
+        return self._beta*ll+lp, ll
 
 class PTSampler(object):
     """A parallel-tempered ensemble sampler."""
 
-    def __init__(self, logl, logp, nthreads=1):
+    def __init__(self, ntemps, nwalkers, dim, logl, logp, threads=1, pool=None):
         """Initialize a sampler with the given log-likelihood and
         log-prior functions.  If nthreads > 1, the sampler will use a
         multiprocessing pool to perform the ensemble moves."""
-        self.logl=logl
-        self.logp=logp
-        self.nthreads=nthreads
 
-        if nthreads > 1:
-            self.pool = multi.Pool(processes=nthreads)
+        self.ntemps = ntemps
+        self.nwalkers = nwalkers
+        self.dim = dim
+
+        self.betas = exponential_beta_ladder(ntemps)
+
+        self.nswap = 0
+        self.nswap_accepted = np.zeros(ntemps, dtype=np.int)
+
+        self.pool = pool
+        if threads > 1 and pool is None:
+            self.pool = multi.Pool(threads)
+
+        self.samplers = [em.EnsembleSampler(nwalkers, dim, PTPost(logl, logp, b), pool=self.pool) for b in self.betas]
+
+    def reset(self):
+        """Clear the stored samplers."""
+    
+        for s in self.samplers:
+            s.reset()
+
+    def sample(self, p0, lnprob0=None, blobs0=None, iterations=1, storechain=True):
+        """Advance the chains iterations steps as a generator.  p0
+        should have shape (ntemps, nwalkers, dim)."""
+
+        p = p0
+
+        # If we have no lnprob or blobs, then run at least one
+        # iteration to compute them.
+        if lnprob0 is None or blobs0 is None:
+            iterations -= 1
+            
+            lnprob = []
+            logl = []
+            for i,s in enumerate(self.samplers):
+                for psamp, lnprobsamp, rstatesamp, loglsamp in s.sample(p[i,...], storechain=storechain):
+                    p[i,...] = psamp
+                    lnprob.append(lnprobsamp)
+                    logl.append(loglsamp)
+
+            lnprob = np.array(lnprob) # Dimensions (ntemps, nwalkers)
+            logl = np.array(logl)
+
+            p,lnprob,logl = self.temperature_swaps(p, lnprob, logl)
         else:
-            self.pool = None
+            lnprob = lnprob0
+            logl = blobs0
 
-        self.naccepted=None
-        self.niter=0
+        for i in range(iterations):
+            for i,s in enumerate(self.samplers):
+                for psamp, lnprobsamp, rstatesamp, loglsamp in s.sample(p[i,...], lnprob0=lnprob[i,...], blobs0=logl[i,...], storechain=storechain):
+                    p[i,...] = psamp
+                    lnprob[i,...] = lnprobsamp
+                    logl[i,...] = np.array(loglsamp)
 
-        self.ntaccepted=None
-        self.ntproposed=None
+            p,lnprob,logl = self.temperature_swaps(p, lnprob, logl)
 
-    def samples(self, pts, logls=None, logps=None, niters=None):
-        """Given a (num_temps, n_walkers, ndim) array of initial
-        points, returns a sequence of (newpts, logls, logps,
-        fdeaccept, ftswapaccept).  logls and logps should have shape
-        (n_temps, n_walkers), if they are given.  The iteration will
-        terminate after niters steps (unless niters is None).
-        fdeaccept has shape (Ntemps, Nwalkers), while ftswapaccept has
-        shape (Ntemps,)"""
+            yield p, lnprob, logl
 
-        logl=self.logl
-        logp=self.logp
+    def temperature_swaps(self, p, lnprob, logl):
+        """Perform parallel-tempering temperature swaps on the state
+        in p with associated lnprob and logl."""
 
-        ntemps,nwalkers,ndim = pts.shape
+        ntemps=self.ntemps
 
-        betas=exponential_beta_ladder(ntemps)
+        for i in range(ntemps-1, 0, -1):
+            bi=self.betas[i]
+            bi1=self.betas[i-1]
 
-        if logls is None:
-            logls=np.zeros((ntemps,nwalkers))
-            for i in range(ntemps):
-                ll=LogLLogP(pts[i,:,:], logl)
-                logls[i,:]=np.array(ChunkedMap(self.pool, nwalkers/self.nthreads+1)(ll, range(nwalkers)))
+            dbeta = bi1-bi
 
-        if logps is None:
-            logps=np.zeros((ntemps,nwalkers))
-            for i in range(ntemps):
-                lp=LogLLogP(pts[i,:,:], logp)
-                logps[i,:]=np.array(ChunkedMap(self.pool, nwalkers/self.nthreads+1)(lp, range(nwalkers)))
+            for j in range(self.nwalkers):
+                ii=nr.randint(self.nwalkers)
+                jj=nr.randint(self.nwalkers)
 
-        if self.naccepted is None:
-            self.naccepted=np.zeros((ntemps,nwalkers), dtype=np.int)
-            self.niter=0
+                paccept = dbeta*(logl[i, ii] - logl[i-1, jj])
 
-        if self.ntaccepted is None or self.ntproposed is None:
-            self.ntaccepted=np.zeros(ntemps, dtype=np.float)
-            self.ntproposed=np.zeros(ntemps, dtype=np.float)
+                if paccept > 0 or np.log(nr.rand()) < paccept:
+                    ptemp=np.copy(p[i, ii, :])
+                    logltemp=logl[i, ii]
+                    lnprobtemp=lnprob[i, ii]
 
-        iiter=0
-        while True:
-            # Run one step of de sampling:
-            for i,beta in enumerate(betas):
-                evolvefn=DEStep(pts[i,:,:], logls[i,:], logps[i,:], beta, logl, logp)
-                new_states=ChunkedMap(self.pool, nwalkers/self.nthreads+1)(evolvefn, range(nwalkers))
+                    p[i,ii,:]=p[i-1,jj,:]
+                    logl[i,ii]=logl[i-1, jj]
+                    lnprob[i,ii] = lnprob[i-1,jj] - dbeta*logl[i-1,jj]
 
-                for j,(x,lx,px) in enumerate(new_states):
-                    if np.all(pts[i,j,:] == x):
-                        pass
-                    else:
-                        self.naccepted[i,j] += 1
+                    p[i-1,jj,:]=ptemp
+                    logl[i-1,jj]=logltemp
+                    lnprob[i-1,jj]=lnprobtemp + dbeta*logltemp
 
-                    pts[i,j,:]=x
-                    logls[i,j]=lx
-                    logps[i,j]=px
+        return p, lnprob, logl
 
-            # Now do temperature swaps.  Start at the lowest
-            # temperature, and swap up.
-            for i in range(ntemps-1, 0, -1):
-                beta1=betas[i]
-                beta2=betas[i-1]
-                
-                for j in range(nwalkers):
-                    ii=nr.randint(nwalkers)
-                    jj=nr.randint(nwalkers)
+    @property 
+    def chain(self):
+        """Returns the chain of samples.  Will have shape that is
+        (Ntemps, Nwalkers, Nsteps, Ndim)."""
 
-                    l1=logls[i,ii]
-                    l2=logls[i-1, jj]
+        return np.array([s.chain for s in self.samplers])
 
-                    ll=(beta2-beta1)*l1 + (beta1-beta2)*l2
+    @property
+    def lnprobability(self):
+        """Matrix of lnprobability values, of shape (Ntemps,
+        Nwalkers, Nsteps)"""
+        return np.array([s.lnprobability for s in self.samplers])
 
-                    self.ntproposed[i] += 1
-                    self.ntproposed[i-1] += 1
+    @property
+    def lnlikelihood(self):
+        """Matrix of ln-likelihood values of shape (Ntemps, Nwalkers,
+        Nsteps)."""
+        return np.array([np.transpose(np.array(s.blobs)) for s in self.samplers])
 
-                    if ll > 0.0 or np.log(nr.rand()) < ll:
-                        self.ntaccepted[i] += 1
-                        self.ntaccepted[i-1] += 1
+    @property
+    def acceptance_fraction(self):
+        """Matrix of shape (Ntemps, Nwalkers) detailing the acceptance
+        fraction for each walker."""
+        return np.array([s.acceptance_fraction for s in self.samplers])
 
-                        # Accept swap
-                        temp=np.copy(pts[i,ii,:])
-                        templ=logls[i,ii]
-                        tempp=logps[i,ii]
-
-                        pts[i,ii,:]=pts[i-1,jj,:]
-                        logls[i,ii]=logls[i-1,jj]
-                        logps[i,ii]=logps[i-1,jj]
-
-                        pts[i-1,jj,:]=temp
-                        logls[i-1,jj]=templ
-                        logps[i-1,jj]=tempp
-                        
-            iiter+=1
-            self.niter += 1
-            yield np.copy(pts), np.copy(logls), np.copy(logps), self.naccepted/float(self.niter), self.ntaccepted/self.ntproposed
-
-            if niters is not None and iiter >= niters:
-                break
-
-    def reset_afrac(self):
-        """Reset the acceptance fraction."""
-        self.naccepted=None
-        self.niter=0
-
-        self.ntaccepted=None
-        self.ntproposed=None
+    @property
+    def acor(self):
+        """Returns a matrix of autocorrelation lengths of shape
+        (Ntemps, Ndim)."""
+        return np.array([s.acor for s in self.samplers])
 
 def exponential_beta_ladder(ntemps):
     """Exponential ladder in T, increasing by sqrt(2) each step, with
     ntemps in total."""
     return np.exp(np.linspace(0, -(ntemps-1)*0.5*np.log(2), ntemps))
-
-def linear_beta_ladder(ntemps):
-    """Linear ladder in beta, decreasing from 1, with ntemps in
-    total."""
-    return np.linspace(1, 0, ntemps+1)[:-1]
 
 def thermodynamic_log_evidence(logls):
     """Computes the evidence integral from the (Nsamples,

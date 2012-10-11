@@ -30,36 +30,33 @@ def truedist(x,T):
     return 0.5*(ss.norm(loc=mu0, scale=sigma*np.sqrt(T)).pdf(x) + ss.norm(loc=mu1, scale=sigma*np.sqrt(T)).pdf(x))
 
 if __name__ == '__main__':
-    nthreads=3
-    nsamps=10000
+    nthreads=1
+    nsamps=1000
     ntemp=12
     nwalkers=100
+    ndim=2
 
     logl=Logl()
     logp=Logp()
 
-    ts=1/np.linspace(1,0,ntemp+1)[:-1]
+    sampler=pt.PTSampler(ntemp, nwalkers, 2, logl, logp, threads=nthreads)
 
-    sampler=pt.PTSampler(logl, logp, nthreads=nthreads)
+    for pts, lnpost, logls in sampler.sample(nr.uniform(low=0.0, high=1.0, size=(ntemp,nwalkers,2)), iterations=nsamps):
+        pass
 
-    savepts=[]
-    for i, (pts, logls, logps) in enumerate(sampler.samples(nr.rand(ntemp, nwalkers,2), niters=nsamps)):
-        savepts.append(pts)
+    savepts=sampler.chain
 
-    savepts=np.array(savepts)
-
-    print savepts.shape
-
-    xs=np.linspace(-2,2,10000)
+    xs=np.linspace(-2,2,1000)
 
     for i in range(ntemp):
-        samps=savepts[:,i,:,0]
+        t=1.0/sampler.betas[i]
+        samps=np.transpose(savepts[i,:,:,0])
         samps=samps[samps.shape[0]/2:, :]
         means=np.mean(samps, axis=1)
         tau,dummy1,dummy2=acor.acor(means)
-        print 'Temperature %d (%g) has acl = %g, mean=%g, sigma = %g'%(i,ts[i],tau,dummy1,dummy2)
-        samps=samps[-1::-int(tau), :].flatten()
+        print 'Temperature %d (%g) has acl = %g, mean=%g, sigma = %g'%(i,t,tau,dummy1,dummy2)
+        samps=samps[-1::-(int(tau)+1), :].flatten()
         pp.plot(xs, ss.gaussian_kde(samps)(xs), label='MCMC')
-        pp.plot(xs, truedist(xs, ts[i]), label='True')
+        pp.plot(xs, truedist(xs, t), label='True')
         pp.legend()
         pp.show()
