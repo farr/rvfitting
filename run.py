@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--nthreads', metavar='N', type=int, default=1, help='number of parallel threads')
     parser.add_argument('--nplanets', metavar='N', type=int, default=1, help='number of planets')
     parser.add_argument('--nthin', metavar='N', type=int, default=4, help='iterations between output')
-    parser.add_argument('--niter', metavar='N', type=int, default=10000, help='total number of iterations')
+    parser.add_argument('--niter', metavar='N', type=int, default=40000, help='total number of iterations')
 
     parser.add_argument('--ntemps', metavar='N', type=int, default=10, help='number of temperatures')
     parser.add_argument('--nwalkers', metavar='N', type=int, default=100, help='number of walkers')

@@ -59,6 +59,11 @@ class LogPrior(object):
         if np.any(p <= self._pmin) or np.any(p >= self._pmax):
             return float('-inf')
 
+        # Ensure unique labeling of planets: in increasing order of
+        # period
+        if p.npl > 1 and np.any(p.P[1:] < p.P[:-1]):
+            return float('-inf')
+
         pr=0.0
 
         # Uniform prior on velocity offset
