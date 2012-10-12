@@ -75,6 +75,8 @@ if __name__ == '__main__':
     print 'max(log(P)) med(log(P)) min(log(P)) <afrac> <tswap> acorr'
     sys.stdout.flush()
 
+    np.savetxt('%s.betas.txt'%args.prefix, np.reshape(sampler.betas, (1, -1)))
+
     mean_lnprobs=[]
     for i, (pts, lnprobs, logls) in enumerate(sampler.sample(pts, lnprob0=lnprobs, logl0=logls, iterations=args.niter, storechain=False)):
         if (i+1) % args.nthin == 0:
