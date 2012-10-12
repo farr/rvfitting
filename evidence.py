@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 import numpy as np
-import ptsampler as pt
+import ptutils as pt
 
 if __name__ == '__main__':
     parser=ArgumentParser()
@@ -20,6 +20,8 @@ if __name__ == '__main__':
     for i in range(args.ntemps):
         inlogls.append(np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i))[:,0])
 
+    betas=np.loadtxt('%s.betas.txt'%args.prefix)
+
     # What if we have a few more outputs in some files than in others?
     minlen=reduce(min, [logl.shape[0] for logl in inlogls])
     inlogls=[logl[:minlen] for logl in inlogls]
@@ -35,4 +37,4 @@ if __name__ == '__main__':
     # burn in...
     logls=logls[int(args.fburnin*logls.shape[0])+1:, ...]
 
-    print pt.thermodynamic_log_evidence(logls)
+    print pt.thermodynamic_log_evidence(logls, betas)
