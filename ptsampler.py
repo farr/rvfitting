@@ -43,8 +43,8 @@ class PTSampler(object):
 
         self.betas = exponential_beta_ladder(ntemps)
 
-        self.nswap = 0
-        self.nswap_accepted = np.zeros(ntemps, dtype=np.int)
+        self.nswap = np.zeros(ntemps, dtype=np.float)
+        self.nswap_accepted = np.zeros(ntemps, dtype=np.float)
 
         self.pool = pool
         if threads > 1 and pool is None:
@@ -58,7 +58,7 @@ class PTSampler(object):
         for s in self.samplers:
             s.reset()
 
-    def sample(self, p0, lnprob0=None, blobs0=None, iterations=1, storechain=True):
+    def sample(self, p0, lnprob0=None, logl0=None, iterations=1, storechain=True):
         """Advance the chains iterations steps as a generator.  p0
         should have shape (ntemps, nwalkers, dim)."""
 
@@ -66,7 +66,7 @@ class PTSampler(object):
 
         # If we have no lnprob or blobs, then run at least one
         # iteration to compute them.
-        if lnprob0 is None or blobs0 is None:
+        if lnprob0 is None or logl0 is None:
             iterations -= 1
             
             lnprob = []
@@ -83,7 +83,7 @@ class PTSampler(object):
             p,lnprob,logl = self.temperature_swaps(p, lnprob, logl)
         else:
             lnprob = lnprob0
-            logl = blobs0
+            logl = logl0
 
         for i in range(iterations):
             for i,s in enumerate(self.samplers):
@@ -109,12 +109,18 @@ class PTSampler(object):
             dbeta = bi1-bi
 
             for j in range(self.nwalkers):
+                self.nswap[i] += 1
+                self.nswap[i-1] += 1
+
                 ii=nr.randint(self.nwalkers)
                 jj=nr.randint(self.nwalkers)
 
                 paccept = dbeta*(logl[i, ii] - logl[i-1, jj])
 
                 if paccept > 0 or np.log(nr.rand()) < paccept:
+                    self.nswap_accepted[i] += 1
+                    self.nswap_accepted[i-1] += 1
+
                     ptemp=np.copy(p[i, ii, :])
                     logltemp=logl[i, ii]
                     lnprobtemp=lnprob[i, ii]
@@ -147,6 +153,12 @@ class PTSampler(object):
         """Matrix of ln-likelihood values of shape (Ntemps, Nwalkers,
         Nsteps)."""
         return np.array([np.transpose(np.array(s.blobs)) for s in self.samplers])
+
+    @property
+    def tswap_acceptance_fraction(self):
+        """Returns an array of accepted temperature swap fractions for
+        each temperature."""
+        return self.nswap_accepted / self.nswap
 
     @property
     def acceptance_fraction(self):
