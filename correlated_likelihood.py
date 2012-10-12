@@ -203,7 +203,7 @@ def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
         samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
 
         # Make sure that periods are increasing
-        samps.n = np.sort(nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl)), axis=-1)[::-1]
+        samps.n = np.sort(nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl)))[:,:,::-1]
 
         samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
         samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
