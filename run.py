@@ -7,7 +7,7 @@ from gzip import GzipFile
 import numpy as np
 import os
 from parameters import Parameters
-from ptsampler import PTSampler
+from emcee.ptsampler import PTSampler
 import tempfile
 import sys
 
