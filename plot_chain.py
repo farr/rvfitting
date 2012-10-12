@@ -69,6 +69,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--nwalkers', metavar='N', default=100, type=int, help='number of ensemble walkers')
 
+    parser.add_argument('--npl', metavar='N', default=1, type=int, help='number of planets')
+    parser.add_argument('--nobs', metavar='N', default=1, type=int, help='number of observatories')
+
     args=parser.parse_args()
 
     pts=np.loadtxt(args.input)
@@ -77,7 +80,7 @@ if __name__ == '__main__':
     pts=np.reshape(pts, (-1, args.nwalkers, pts.shape[-1]))
 
     logls=pts[..., 0]
-    chain=pr.Parameters(pts[..., 2:])
+    chain=pr.Parameters(pts[..., 2:], npl=args.npl, nobs=args.nobs)
 
     logls=pt.burned_in_samples(logls, fburnin=args.fburnin)
     chain=pt.decorrelated_samples(pt.burned_in_samples(chain, fburnin=args.fburnin))
