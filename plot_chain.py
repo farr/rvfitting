@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+import acor as acor
 from argparse import ArgumentParser
 import matplotlib.pyplot as pp
 import numpy as np
 import os
 import parameters as pr
-import ptsampler as pt
+import emcee.ptsampler as pt
 import scipy.stats as ss
 import scipy.stats.mstats as ssm
 
@@ -65,6 +66,8 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', metavar='DIR', default=None, help='output directory')
     parser.add_argument('--trueparams', metavar='FILE', default=None, help='true parameters')
 
+    parser.add_argument('--correlated', default=False, const=True, action='store_const', help='use the raw samples instead of decorrelating')
+
     parser.add_argument('--fburnin', metavar='F', default=0.1, type=float, help='fraction to discard as burned in')
 
     parser.add_argument('--nwalkers', metavar='N', default=100, type=int, help='number of ensemble walkers')
@@ -82,8 +85,19 @@ if __name__ == '__main__':
     logls=pts[..., 0]
     chain=pr.Parameters(pts[..., 2:], npl=args.npl, nobs=args.nobs)
 
-    logls=pt.burned_in_samples(logls, fburnin=args.fburnin)
-    chain=pt.decorrelated_samples(pt.burned_in_samples(chain, fburnin=args.fburnin))
+    logls=logls[int(args.fburnin*logls.shape[0])+1:, ...]
+    chain=chain[int(args.fburnin*chain.shape[0])+1:, ...]
+
+    if not args.correlated:
+        maxtau=float('-inf')
+        for j in range(chain.shape[-1]):
+            maxtau=max(maxtau, acor.acor(chain[:,:,j].T)[0])
+        maxtau=int(maxtau)+1
+    else:
+        maxtau=1
+
+    logls=logls[::maxtau, ...]
+    chain=chain[::maxtau, ...]
 
     names=chain.header.split()[1:]
     tnames=chain.tex_header
