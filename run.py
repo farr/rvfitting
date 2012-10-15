@@ -77,27 +77,24 @@ if __name__ == '__main__':
 
     np.savetxt('%s.betas.txt'%args.prefix, np.reshape(sampler.betas, (1, -1)))
 
-    mean_lnprobs=[]
-    for i, (pts, lnprobs, logls) in enumerate(sampler.sample(pts, lnprob0=lnprobs, logl0=logls, iterations=args.niter, storechain=False)):
-        if (i+1) % args.nthin == 0:
-            mean_lnprobs.append(np.mean(lnprobs[0,:]))
-            try:
-                ac=acor.acor(np.array(mean_lnprobs)[len(mean_lnprobs)/10:])[0]
-            except:
-                ac=float('inf')
-
-            for i in range(args.ntemps):
-                with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'a') as out:
-                    np.savetxt(out, np.column_stack((logls[i,...], lnprobs[i,...]-logls[i,...], pts[i,...])))
-
-            with GzipFile('%s.accept.txt.gz'%args.prefix, 'a') as out:
-                np.savetxt(out, np.reshape(np.mean(sampler.acceptance_fraction, axis=1), (1, -1)))
-
-            with GzipFile('%s.aswaps.txt.gz'%args.prefix, 'a') as out:
-                np.savetxt(out, np.reshape(sampler.tswap_acceptance_fraction, (1, -1)))
-                
-            print '%11.1f %11.1f %11.1f %7.2f %7.2f %5.1f'%(np.amax(lnprobs[0,:]), np.median(lnprobs[0,:]), np.min(lnprobs[0,:]), np.mean(sampler.acceptance_fraction[0, :]), sampler.tswap_acceptance_fraction[0], ac)
-            sys.stdout.flush()
-        else:
+    for i in range(args.niter):
+        for j, (pts, lnprobs, logls) in enumerate(sampler.sample(pts, lnprob0=lnprobs, lnlike0=logls, iterations=args.nthin, thin=args.nthin)):
             pass
-            
+
+        try:
+            ac=np.max(sampler.acor)
+        except:
+            ac=float('inf')
+
+        for i in range(args.ntemps):
+            with GzipFile('%s.%02d.txt.gz'%(args.prefix, i), 'a') as out:
+                np.savetxt(out, np.column_stack((logls[i,...], lnprobs[i,...]-logls[i,...], pts[i,...])))
+
+        with GzipFile('%s.accept.txt.gz'%args.prefix, 'a') as out:
+            np.savetxt(out, np.reshape(np.mean(sampler.acceptance_fraction, axis=1), (1, -1)))
+
+        with GzipFile('%s.aswaps.txt.gz'%args.prefix, 'a') as out:
+            np.savetxt(out, np.reshape(sampler.tswap_acceptance_fraction, (1, -1)))
+                
+        print '%11.1f %11.1f %11.1f %7.2f %7.2f %5.1f'%(np.amax(lnprobs[0,:]), np.median(lnprobs[0,:]), np.min(lnprobs[0,:]), np.mean(sampler.acceptance_fraction[0, :]), sampler.tswap_acceptance_fraction[0], ac)
+        sys.stdout.flush()            

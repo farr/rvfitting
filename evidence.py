@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     inlogls=[]
     for i in range(args.ntemps):
-        inlogls.append(np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i))[:,0])
+        inlogls.append(np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i), usecols=(0,)))
 
     betas=np.loadtxt('%s.betas.txt'%args.prefix)
 
