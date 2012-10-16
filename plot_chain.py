@@ -135,15 +135,15 @@ if __name__ == '__main__':
         i += 1
 
     for ipl in range(chain.npl):
-        do_plot(chain.K[...,iobs], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.K[...,ipl], names[i], tnames[i], true[i], args.outdir)
         i += 1
 
-        do_plot(chain.n[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
+        do_plot(chain.n[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         if true[i] is not None:
             ptrue=2.0*np.pi/true[i]
         else:
             ptrue=None
-        do_plot(chain.P[...,iobs], 
+        do_plot(chain.P[...,ipl], 
                 names[i].replace('n', 'P'),
                 tnames[i].replace('n', 'P'),
                 ptrue,
@@ -151,11 +151,11 @@ if __name__ == '__main__':
                 mmin=0.0)
         i += 1
 
-        do_plot(chain.chi[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0, periodic=True)
+        do_plot(chain.chi[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0, periodic=True)
         i += 1
 
-        do_plot(chain.e[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0)
+        do_plot(chain.e[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=1.0)
         i += 1
 
-        do_plot(chain.omega[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=2.0*np.pi, periodic=True)
+        do_plot(chain.omega[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0, mmax=2.0*np.pi, periodic=True)
         i += 1

@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_argument('--ntemps', metavar='N', default=20, type=int, help='number of temperatures')
     parser.add_argument('--nwalkers', metavar='N', default=100, type=int, help='number of ensemble walkers')
 
-    parser.add_argument('--fburnin', metavar='F', default=0.5, type=float, help='fraction of samples to discard as burnin')
+    parser.add_argument('--fburnin', metavar='F', default=0.1, type=float, help='fraction of samples to discard as burnin')
 
     args=parser.parse_args()
 
