@@ -64,6 +64,9 @@ class LogPrior(object):
         if p.npl > 1 and np.any(p.P[1:] < p.P[:-1]):
             return float('-inf')
 
+        if np.any(p.K < np.min(p.sigma)/10.0):
+            return float('-inf')
+
         pr=0.0
 
         # Uniform prior on velocity offset
@@ -167,8 +170,6 @@ def prior_bounds_from_data(npl, ts, rvs):
         pmin.n = 2.0*np.pi/(max_obst)
         pmax.n = 2.0*np.pi/(min_dt)
 
-        pmin.K = min_rv_mean_error(rvs)
-
         pmax.chi = 1.0
         
         pmax.e = 1.0
@@ -200,7 +201,7 @@ def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
     samps.sigma = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
     samps.tau = nr.uniform(low=dtmin, high=T, size=(ntemps, nwalkers,nobs))
     if npl >= 1:
-        samps.K = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
+        samps.K = np.reshape(np.min(samps.sigma, axis=2)/10.0, (ntemps, nwalkers, 1)) + nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
 
         # Make sure that periods are increasing
         samps.n = np.sort(nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl)))[:,:,::-1]
