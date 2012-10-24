@@ -28,7 +28,7 @@ if __name__ == '__main__':
     args=parser.parse_args()
 
     state=np.loadtxt(args.input)[..., 2:]
-    state=Parameters(np.reshape(state, (-1, args.nwalkers, state.shape[-1]))[-1, :, :], npl=args.npl, nobs=args.nobs)
+    state=Parameters(state[-args.nwalkers:,:], npl=args.npl, nobs=args.nobs)
 
     ts=[]
     rvs=[]
