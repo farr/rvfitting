@@ -58,7 +58,7 @@ if __name__ == '__main__':
         logls=np.array(logls)
         lnprobs=np.array(lnprobs)
     except:
-        pts=cl.generate_initial_sample(ts, rvs, args.ntemps, args.nwalkers, nobs=len(args.rvs), npl=args.nplanets)
+        pts=cl.generate_initial_sample(pmin, pmax, args.ntemps, args.nwalkers)
         logls=None
         lnprobs=None
         p=Parameters(npl=args.nplanets, nobs=len(args.rvs))

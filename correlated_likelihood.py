@@ -36,24 +36,27 @@ class LogPrior(object):
     def __init__(self, pmin=None, pmax=None, npl=1, nobs=1):
         """Initialize with the given bounds on the priors."""
 
-        self._pmin = pmin
-        self._pmax = pmax
+        if pmin is None:
+            self._pmin = params.Parameters(npl=npl, nobs=nobs)
+            self._pmin = 0.0*self._pmin
+            self._pmin.V = float('-inf')
+        else:
+            self._pmin = pmin
+
+        if pmax is None:
+            self._pmax = params.Parameters(npl=npl, nobs=nobs)
+            self._pmax = self._pmax + float('inf')
+            self._pmax.chi = 1.0
+            self._pmax.e = 1.0
+            self._pmax.omega = 2.0*np.pi
+        else:
+            self._pmax = pmax
+
         self._npl = npl
         self._nobs = nobs
 
     def __call__(self, p):
         p = params.Parameters(p, npl=self._npl, nobs=self._nobs)
-
-        if self._pmin is None:
-            self._pmin = 0.0*p
-            self._pmin.V = float('-inf')
-
-        if self._pmax is None:
-            self._pmax = p + float('inf')
-            if npl > 0:
-                self._pmax.chi = 1.0
-                self._pmax.e = 1.0
-                self._pmax.omega = 2.0*np.pi
 
         # Check bounds
         if np.any(p <= self._pmin) or np.any(p >= self._pmax):
@@ -62,9 +65,6 @@ class LogPrior(object):
         # Ensure unique labeling of planets: in increasing order of
         # period
         if p.npl > 1 and np.any(p.P[1:] < p.P[:-1]):
-            return float('-inf')
-
-        if np.any(p.K < np.min(p.sigma)/10.0):
             return float('-inf')
 
         pr=0.0
@@ -125,24 +125,13 @@ class LogLikelihood(object):
             else:
                 rvmodel=np.sum(rv.rv_model(t, p), axis=0)
 
-            residual=rvobs-rvmodel-V
+            residual=rvobs-rvmodel
             cov=generate_covariance(t, sigma, tau)
 
-            ll += correlated_gaussian_loglikelihood(residual, np.zeros_like(residual), cov)
+            ll += correlated_gaussian_loglikelihood(residual, V*np.ones_like(residual), cov)
 
         return ll
             
-def min_rv_mean_error(rvs):
-    """Returns the minimum error across all observations on the mean
-    of the radial velocities."""
-
-    muerr=float('inf')
-    for rv in rvs:
-        err=np.std(rv)/np.sqrt(len(rv))
-        muerr=min(err,muerr)
-
-    return muerr
-
 def prior_bounds_from_data(npl, ts, rvs):
     """Returns conservative prior bounds (pmin, pmax) given sampling
     times for each observatory."""
@@ -155,56 +144,94 @@ def prior_bounds_from_data(npl, ts, rvs):
     tobss=[t[-1]-t[0] for t in ts]
     max_obst=reduce(max, tobss)
 
+    min_dv=reduce(min, [np.min(np.abs(np.diff(rv))) for rv in rvs])
+
+    maxspread=reduce(max, [np.max(rv)-np.min(rv) for rv in rvs])
+
     pmin=params.Parameters(nobs=nobs,npl=npl)
     pmax=params.Parameters(nobs=nobs,npl=npl)
 
-    pmin[:]=0.0
-    pmax[:]=float('inf')
+    Vmin=[]
+    Vmax=[]
+    taumin=[]
+    taumax=[]
+    sigmamin=[]
+    sigmamax=[]
+    for t,rv in zip(ts, rvs):
+        spread=np.max(rv) - np.min(rv)
+        Vmin.append(np.min(rv) - spread)
+        Vmax.append(np.max(rv) + spread)
 
-    pmin.V = float('-inf')
+        mindt=np.min(np.diff(t))
+        T=t[-1] - t[0]
 
-    pmin.tau = min_dt/10.0
-    pmax.tau = 10.0*max_obst
+        taumin.append(mindt/10.0)
+        taumax.append(T*10.0)
+
+        sigmamin.append(0.0)
+        sigmamax.append(2.0*np.std(rv))
+
+    pmin.V = np.array(Vmin)
+    pmax.V = np.array(Vmax)
+    pmin.tau = np.array(taumin)
+    pmax.tau = np.array(taumax)
+    pmin.sigma = np.array(sigmamin)
+    pmax.sigma = np.array(sigmamax)
 
     if npl >= 1:
         pmin.n = 2.0*np.pi/(max_obst)
         pmax.n = 2.0*np.pi/(min_dt)
 
+        pmin.chi = 0.0
         pmax.chi = 1.0
         
+        pmin.e = 0.0
         pmax.e = 1.0
     
+        pmin.omega = 0.0
         pmax.omega = 2.0*np.pi
+
+        pmin.K = min_dv
+        pmax.K = 2.0*maxspread
 
     return pmin, pmax
 
-def generate_initial_sample(ts, rvs, ntemps, nwalkers, nobs=1, npl=1):
-    """Generates an initial sample of parameters for
-    single-observatory, single-planet setups."""
+def draw_logarithmic(low, high, size=1):
+    llow = np.log(low)
+    lhigh = np.log(high)
 
-    ts=np.concatenate(ts)
-    rvs=np.concatenate(rvs)
+    return np.exp(nr.uniform(low=llow, high=lhigh, size=size))
 
-    mu=np.mean(rvs)
-    sig=np.std(rvs)
-    sqrtN=np.sqrt(rvs.shape[0])
+def generate_initial_sample(pmin, pmax, ntemps, nwalkers):
+    """Generates an initial sample of parameters drawn uniformly from
+    the prior ."""
 
-    T=np.amax(ts)-np.amin(ts)
-    dtmin=np.min(np.diff(np.sort(ts)))
+    npl = pmin.npl
+    nobs = pmin.nobs
 
-    nmin=2.0*np.pi/T
-    nmax=2.0*np.pi/dtmin
+    assert npl == pmax.npl, 'Number of planets must agree in prior bounds'
+    assert nobs == pmax.nobs, 'Number of observations must agree in prior bounds'
 
-    samps=params.Parameters(arr=np.zeros((ntemps, nwalkers, 3*nobs+5*npl)), nobs=nobs, npl=npl)
+    N = pmin.shape[-1]
 
-    samps.V = nr.normal(loc=mu, scale=sig/sqrtN, size=(ntemps,nwalkers,nobs))
-    samps.sigma = nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,nobs))
-    samps.tau = nr.uniform(low=dtmin, high=T, size=(ntemps, nwalkers,nobs))
+    samps=params.Parameters(arr=np.zeros((ntemps, nwalkers, N)), nobs=nobs, npl=npl)
+
+    V=samps.V
+    tau=samps.tau
+    sigma=samps.sigma
+    for i in range(nobs):
+        V[:,:,i] = nr.uniform(low=pmin.V[i], high=pmax.V[i], size=(ntemps, nwalkers))
+        tau[:,:,i] = draw_logarithmic(low=pmin.tau[i], high=pmax.tau[i], size=(ntemps,nwalkers))
+        sigma[:,:,i] = draw_logarithmic(low=pmax.sigma[i]/1000.0, high=pmax.sigma[i], size=(ntemps,nwalkers))
+    samps.V=V
+    samps.tau = tau
+    samps.sigma = sigma
+
     if npl >= 1:
-        samps.K = np.reshape(np.min(samps.sigma, axis=2)/10.0, (ntemps, nwalkers, 1)) + nr.lognormal(mean=np.log(sig), sigma=1.0/sqrtN, size=(ntemps,nwalkers,npl))
+        samps.K = draw_logarithmic(low=pmin.K[0], high=pmax.K[0], size=(ntemps, nwalkers, npl))
 
         # Make sure that periods are increasing
-        samps.n = np.sort(nr.uniform(low=nmin, high=nmax, size=(ntemps, nwalkers,npl)))[:,:,::-1]
+        samps.n = np.sort(draw_logarithmic(low=pmin.n, high=pmax.n, size=(ntemps,nwalkers,npl)))[:,:,::-1]
 
         samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
         samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
