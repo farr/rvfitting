@@ -37,6 +37,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--rvs', metavar='FILE', required=True, default=[], action='append', help='file of times and RV\'s')
 
+    parser.add_argument('--restart', default=False, action='store_const', const=True)
+
     args=parser.parse_args()
 
     ts, rvs=load_data(args.rvs)
@@ -58,6 +60,10 @@ if __name__ == '__main__':
         logls=np.array(logls)
         lnprobs=np.array(lnprobs)
     except:
+        # If we are demanding a restart, then re-raise exception.
+        if args.restart:
+            raise
+
         pts=cl.generate_initial_sample(pmin, pmax, args.ntemps, args.nwalkers)
         logls=None
         lnprobs=None
