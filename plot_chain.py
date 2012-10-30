@@ -135,7 +135,7 @@ if __name__ == '__main__':
         i += 1
 
     for ipl in range(chain.npl):
-        do_plot(chain.K[...,ipl], names[i], tnames[i], true[i], args.outdir)
+        do_plot(chain.K[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         i += 1
 
         do_plot(chain.n[...,ipl], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
