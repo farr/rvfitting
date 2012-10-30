@@ -4,6 +4,7 @@ import numpy.random as nr
 import parameters as params
 import rv_model as rv
 import scipy.linalg as sl
+import scipy.stats as ss
 
 def correlated_gaussian_loglikelihood(xs, means, cov):
     """Returns the likelihood for data xs, assumed to be multivariate
@@ -29,6 +30,17 @@ def generate_covariance(ts, sigma, tau):
     tjs = np.tile(ts, (ndim, 1))
 
     return sigma*sigma*np.exp(-np.abs(tis-tjs)/tau)
+
+def correlated_gaussian_quantiles(xs, means, cov):
+    """Returns an array of quantiles for each of the xs in the
+    correlated Gaussian distribution with the given mean and
+    covariance."""
+
+    L = sl.cholesky(cov, lower=True)
+
+    ys = sl.solve(L, xs-means)
+
+    return ss.norm.cdf(ys)
 
 class LogPrior(object):
     """Log of the prior function."""
@@ -120,17 +132,24 @@ class LogLikelihood(object):
         ll=0.0
 
         for t, rvobs, V, sigma, tau in zip(self.ts, self.rvs, p.V, p.sigma, p.tau):
-            if npl == 0:
-                rvmodel=np.zeros_like(t)
-            else:
-                rvmodel=np.sum(rv.rv_model(t, p), axis=0)
+            residual = self.residuals(t, rvobs, p)
 
-            residual=rvobs-rvmodel
             cov=generate_covariance(t, sigma, tau)
 
             ll += correlated_gaussian_loglikelihood(residual, V*np.ones_like(residual), cov)
 
         return ll
+
+    def residuals(self, ts, rvs, p):
+        """Return the residuals for the rv model with parameters ``p``
+        and the observations of radial velocitys ``rv`` at times
+        ``t``"""
+
+        if p.npl == 0:
+            return rvs
+        else:
+            rvmodel = np.sum(rv.rv_model(ts,p), axis=0)
+            return rvs - rvmodel
             
 def prior_bounds_from_data(npl, ts, rvs):
     """Returns conservative prior bounds (pmin, pmax) given sampling
@@ -270,3 +289,28 @@ def recenter_samples(ts, chains, logls, sigmafactor=0.1):
 
     return samples
     
+def posterior_data_mean_quantiles(ts, rvs, psamples):
+    """Returns the average of the quantiles of the data residuals over
+    the posterior samples in psamples.  The quantiles over multiple
+    observatories are flattened into one array. """
+
+    Nobs = len(ts)
+    Nsamples = psamples.shape[0]
+
+    Npl = (psamples.shape[-1] - 3*Nobs)/5
+
+    psamples=params.Parameters(arr=psamples, npl=Npl, nobs=Nobs)
+
+    ll=LogLikelihood(ts, rvs)
+
+    qs=np.zeros(sum([len(t) for t in ts]))
+
+    for psample in psamples:
+        one_qs=[]
+        for t, rv, V, tau, sigma in zip(ts, rvs, psample.V, psample.tau, psample.sigma):
+            one_qs.append(correlated_gaussian_quantiles(ll.residuals(t, rv, psample),
+                                                        V*np.ones_like(t), 
+                                                        generate_covariance(t, sigma, tau)))
+        qs += np.array(one_qs).flatten()/Nsamples
+
+    return qs
