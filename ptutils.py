@@ -2,13 +2,20 @@ import acor
 import numpy as np
 
 def exponential_beta_ladder(ntemps):
+    """Returns an array of betas (:math:`\\beta = 1/T`) exponentially
+    distributed with a spacing factor of :math:`\\sqrt{2}`.
+
+    :param ntemps: The number of temperatures in the ladder."""
     return np.exp(np.linspace(0, -(ntemps-1)*0.5*np.log(2), ntemps))
 
 def thermodynamic_log_evidence(logls, betas):
     """Computes the evidence integral.
 
     :param logls: The ln(likelihood) samples, of shape ``(Nsamples,
-    Ntemperatures, Nwalkers)``."""
+      Ntemperatures, Nwalkers)``.
+
+    :param betas: The inverse temperatures corresponding to the logl
+      chains."""
 
     nsamp,ntemp,nwalk=logls.shape
 
@@ -21,16 +28,18 @@ def thermodynamic_log_evidence(logls, betas):
 def burned_in_samples(pts, logls):
     """Automatic burn-in criterion.  
 
-    The run is considered burned-in whenever the mean log(L) over reaches a
-    point within one standard deviation of the maximum value
+    The run is considered burned-in whenever the mean log(L) over each
+    walker ensemble reaches a point within one standard deviation of
+    the maximum value
 
-    :param pts: The points in the chain, of shape ``(Nsamples,
-    Nwalkers, Ndim)``.
+    :param pts: 
+      The points in the chain, of shape ``(Nsamples, Nwalkers,
+      Ndim)``.
 
     :param logls: The log(L) values of the chain, shape ``(Nsamples,
-    Nwalkers)``.
+      Nwalkers)``.
 
-    :return pts, logls: The burned-in points and logls."""
+    :return: ``pts, logls``, The burned-in points and logls."""
 
     mean_logls = np.mean(logls, axis=1)
     max_mean = np.max(mean_logls)
@@ -44,9 +53,10 @@ def burned_in_samples(pts, logls):
     return pts[istart:,...], logls[istart:, :]
 
 def decorrelated_samples(pts):
-    """Returns a subset of ``pts`` that is downsampled by the longest
-    correlation length in ``pts``.  pts should have shape ``(Nsamples,
-    Nwalkers, Ndim)``."""
+    """Returns a decorrelated subset of ``pts``.
+
+    :param pts: The samples from a chain to be decorrelated.  Shape
+      ``(Nsamples, Nwalkers, Ndim)``."""
 
     if acor is None:
         raise ImportError('acor')
