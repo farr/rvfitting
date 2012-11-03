@@ -71,7 +71,7 @@ class LogPrior(object):
         p = params.Parameters(p, npl=self._npl, nobs=self._nobs)
 
         # Check bounds
-        if np.any(p <= self._pmin) or np.any(p >= self._pmax):
+        if np.any(p < self._pmin) or np.any(p > self._pmax):
             return float('-inf')
 
         # Ensure unique labeling of planets: in increasing order of
