@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg as nl
 import numpy.random as nr
 import rv_model as rv
 import correlated_likelihood as cl
@@ -103,7 +104,10 @@ class DataGenerator(object):
         
         noise=[]
         for t, V, sigma0, sigma, tau in zip(ts, self.params.V, self.params.sigma0, self.params.sigma, self.params.tau):
-            noise.append(V+nr.multivariate_normal(np.zeros_like(t), cl.generate_covariance(t, sigma0, sigma, tau)))
+            cov = cl.generate_covariance(t, sigma0, sigma, tau)
+            A = nl.cholesky(cov)
+            xs = nr.normal(size=len(t))
+            noise.append(V + np.dot(A, xs))
 
         return noise
 
