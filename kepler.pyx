@@ -59,7 +59,7 @@ cdef double kepler_solve_ta(double n, double e, double t):
 
   return f
 
-cpdef np.ndarray[np.float_t, ndim=1] rv_model(np.ndarray[np.float_t, ndim=1] ts, 
+cpdef np.ndarray[np.float_t, ndim=2] rv_model(np.ndarray[np.float_t, ndim=1] ts, 
                                               np.ndarray[np.float_t, ndim=1] Ks,
                                               np.ndarray[np.float_t, ndim=1] es,
                                               np.ndarray[np.float_t, ndim=1] omegas,
@@ -83,6 +83,6 @@ cpdef np.ndarray[np.float_t, ndim=1] rv_model(np.ndarray[np.float_t, ndim=1] ts,
           t = ts[j]
           f = kepler_solve_ta(n, e, (t-t0))
 
-          rvs[i,j] = K*(sin(f + omega) + ecw)
+          rvs[i,j] = K*(cos(f + omega) + ecw)
 
   return rvs

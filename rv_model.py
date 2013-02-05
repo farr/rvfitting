@@ -84,13 +84,12 @@ def old_rv_model(ts, ps):
     for i,(K,e,omega,chi,n) in enumerate(zip(ps.K, ps.e, ps.omega, ps.chi, ps.n)):
 
         ecw=e*np.cos(omega)
-        esw=e*np.sin(omega)
 
         t0 = -chi*2.0*np.pi/n
 
         fs=kepler_solve_ta(n, e, (ts-t0))
 
-        rvs[i,:]=K*(np.sin(fs + omega) + ecw)
+        rvs[i,:]=K*(np.cos(fs + omega) + ecw)
 
     return rvs
 
