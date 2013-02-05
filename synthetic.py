@@ -9,17 +9,19 @@ class DataGenerator(object):
 
     def __init__(self, params, tsundowns=None, cadences=None, tstarts=None, tends=None):
         """Initialize a data generator for the given system
-        parameters.  Optional arguments are as follows:
+        parameters.  
 
-        * tsundown: time of sundown at each observatory, in hours.
+        :param params: Parameters describing the system in question.
 
-        * cadence: mean time between observations (Poisson
+        :param tsundown: time of sundown at each observatory, in hours.
+
+        :param cadence: mean time between observations (Poisson
           distributed) at each observatory.
 
-        * tstarts: time (in hours) of start of observations at each
+        :param tstarts: time (in hours) of start of observations at each
           observatory.
 
-        * tends: time (in hours) of the end of observations at each
+        :param tends: time (in hours) of the end of observations at each
           observatory."""
 
         self._params = params
@@ -100,8 +102,8 @@ class DataGenerator(object):
     def generate_noise(self, ts):
         
         noise=[]
-        for t, V, sigma0, tau in zip(ts, self.params.V, self.params.sigma0, self.params.tau):
-            noise.append(V+nr.multivariate_normal(np.zeros_like(t), cl.generate_covariance(t, sigma0, tau)))
+        for t, V, sigma0, sigma, tau in zip(ts, self.params.V, self.params.sigma0, self.params.sigma, self.params.tau):
+            noise.append(V+nr.multivariate_normal(np.zeros_like(t), cl.generate_covariance(t, sigma0, sigma, tau)))
 
         return noise
 

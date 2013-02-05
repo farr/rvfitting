@@ -124,6 +124,9 @@ if __name__ == '__main__':
         do_plot(chain.V[...,iobs], names[i], tnames[i], true[i], args.outdir)
         i += 1
 
+        do_plot(chain.sigma0[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
+        i += 1
+
         do_plot(chain.sigma[...,iobs], names[i], tnames[i], true[i], args.outdir, mmin=0.0)
         i += 1
 

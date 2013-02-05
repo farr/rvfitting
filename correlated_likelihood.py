@@ -19,17 +19,20 @@ def correlated_gaussian_loglikelihood(xs, means, cov):
 
     return -np.log(2.0*np.pi)*(ndim/2.0)-0.5*np.sum(np.log(lambdas))-np.sum(ds)
 
-def generate_covariance(ts, sigma, tau):
-    """Generates a covariance matrix according to an exponential
-    autocovariance: cov(t_i, t_j) =
-    sigma*sigma*exp(-|ti-tj|/tau)."""
+def generate_covariance(ts, sigma0, sigma, tau):
+    r"""Generates a covariance matrix according to an exponential
+    autocovariance, with a white noise component:
+
+    .. math::
+      
+      \left\langle x_i x_j \right\rangle = \sigma_0 \delta_{ij} + \sigma \exp\left[ \frac{\left| t_i - t_j\right|}{\tau} \right]"""
 
     ndim = ts.shape[0]
 
     tis = np.tile(np.reshape(ts, (-1, 1)), (1, ndim))
     tjs = np.tile(ts, (ndim, 1))
 
-    return sigma*sigma*np.exp(-np.abs(tis-tjs)/tau)
+    return sigma0*sigma0*np.eye(ndim) + sigma*sigma*np.exp(-np.abs(tis-tjs)/tau)
 
 def correlated_gaussian_quantiles(xs, means, cov):
     """Returns an array of quantiles for each of the xs in the
@@ -83,6 +86,10 @@ class LogPrior(object):
 
         # Uniform prior on velocity offset
 
+        # Jeffreys scale prior on sigma0
+        for s in p.sigma0:
+            pr -= np.sum(np.log(s))
+
         # Jeffreys scale prior on sigma
         for s in p.sigma:
             pr -= np.sum(np.log(s))
@@ -125,16 +132,16 @@ class LogLikelihood(object):
 
     def __call__(self, p):
         nobs=len(self.rvs)
-        npl=(p.shape[-1]-3*nobs)/5
+        npl=(p.shape[-1]-4*nobs)/5
 
         p = params.Parameters(p, nobs=nobs, npl=npl)
 
         ll=0.0
 
-        for t, rvobs, V, sigma, tau in zip(self.ts, self.rvs, p.V, p.sigma, p.tau):
+        for t, rvobs, V, sigma0, sigma, tau in zip(self.ts, self.rvs, p.V, p.sigma0, p.sigma, p.tau):
             residual = self.residuals(t, rvobs, p)
 
-            cov=generate_covariance(t, sigma, tau)
+            cov=generate_covariance(t, sigma0, sigma, tau)
 
             ll += correlated_gaussian_loglikelihood(residual, V*np.ones_like(residual), cov)
 
@@ -174,6 +181,8 @@ def prior_bounds_from_data(npl, ts, rvs):
     Vmax=[]
     taumin=[]
     taumax=[]
+    sigma0min=[]
+    sigma0max=[]
     sigmamin=[]
     sigmamax=[]
     for t,rv in zip(ts, rvs):
@@ -182,18 +191,24 @@ def prior_bounds_from_data(npl, ts, rvs):
         Vmax.append(np.max(rv) + spread)
 
         mindt=np.min(np.diff(t))
+        mindv=np.min(np.abs(np.diff(rv)))
         T=t[-1] - t[0]
 
-        taumin.append(mindt/10.0)
-        taumax.append(T*10.0)
+        taumin.append(mindt/2.0)
+        taumax.append(T*2.0)
 
-        sigmamin.append(0.0)
+        sigma0min.append(mindv/2.0)
+        sigma0max.append(2.0*np.std(rv))
+
+        sigmamin.append(mindv/2.0)
         sigmamax.append(2.0*np.std(rv))
 
     pmin.V = np.array(Vmin)
     pmax.V = np.array(Vmax)
     pmin.tau = np.array(taumin)
     pmax.tau = np.array(taumax)
+    pmin.sigma0 = np.array(sigma0min)
+    pmax.sigma0 = np.array(sigma0max)
     pmin.sigma = np.array(sigmamin)
     pmax.sigma = np.array(sigmamax)
 
@@ -210,12 +225,18 @@ def prior_bounds_from_data(npl, ts, rvs):
         pmin.omega = 0.0
         pmax.omega = 2.0*np.pi
 
-        pmin.K = min_dv
+        pmin.K = min_dv/2.0
         pmax.K = 2.0*maxspread
 
     return pmin, pmax
 
 def draw_logarithmic(low, high, size=1):
+    """Draw random numbers of shape ``size`` distributed flat in
+    logarithm between ``low`` and ``high``."""
+
+    if np.any(low <= 0.0) or np.any(high <= 0.0):
+        raise ValueError('draw_logarithmic expects positive arguments')
+
     llow = np.log(low)
     lhigh = np.log(high)
 
@@ -238,13 +259,16 @@ def generate_initial_sample(pmin, pmax, ntemps, nwalkers):
     V=samps.V
     tau=samps.tau
     sigma=samps.sigma
+    sigma0=samps.sigma0
     for i in range(nobs):
         V[:,:,i] = nr.uniform(low=pmin.V[i], high=pmax.V[i], size=(ntemps, nwalkers))
         tau[:,:,i] = draw_logarithmic(low=pmin.tau[i], high=pmax.tau[i], size=(ntemps,nwalkers))
-        sigma[:,:,i] = draw_logarithmic(low=pmax.sigma[i]/1000.0, high=pmax.sigma[i], size=(ntemps,nwalkers))
+        sigma[:,:,i] = draw_logarithmic(low=pmin.sigma[i], high=pmax.sigma[i], size=(ntemps,nwalkers))
+        sigma0[:,:,i] = draw_logarithmic(low=pmin.sigma[i], high=pmax.sigma[i], size=(ntemps, nwalkers))
     samps.V=V
     samps.tau = tau
     samps.sigma = sigma
+    samps.sigma0 = sigma0
 
     if npl >= 1:
         samps.K = draw_logarithmic(low=pmin.K[0], high=pmax.K[0], size=(ntemps, nwalkers, npl))
@@ -279,6 +303,7 @@ def recenter_samples(ts, chains, logls, sigmafactor=0.1):
     assert samples.nobs == 1, 'require exactly one observatory'
 
     samples.V = np.random.normal(loc=p0.V, scale=sf*p0.sigma/np.sqrt(nobs), size=samples.V.shape)
+    samples.sigma0 = np.random.lognormal(mean=np.log(p0.sigma0), sigma=sf/np.sqrt(nobs), size=samples.simag0.shape)
     samples.sigma = np.random.lognormal(mean=np.log(p0.sigma), sigma=sf/np.sqrt(ncorr), size=samples.sigma.shape)
     samples.tau = np.random.lognormal(mean=np.log(p0.tau), sigma=sf/np.sqrt(ncorr), size=samples.tau.shape)
     samples.K = np.random.normal(loc=p0.K, scale=sf*p0.K/np.sqrt(nobs), size=samples.K.shape)
@@ -288,7 +313,7 @@ def recenter_samples(ts, chains, logls, sigmafactor=0.1):
     samples.omega = np.random.lognormal(mean=np.log(p0.omega), sigma=sf/np.sqrt(ncycle), size=samples.omega.shape)
 
     return samples
-    
+
 def posterior_data_mean_quantiles(ts, rvs, psamples):
     """Returns the average of the quantiles of the data residuals over
     the posterior samples in psamples.  The quantiles over multiple
@@ -297,7 +322,7 @@ def posterior_data_mean_quantiles(ts, rvs, psamples):
     Nobs = len(ts)
     Nsamples = psamples.shape[0]
 
-    Npl = (psamples.shape[-1] - 3*Nobs)/5
+    Npl = (psamples.shape[-1] - 4*Nobs)/5
 
     psamples=params.Parameters(arr=psamples, npl=Npl, nobs=Nobs)
 
@@ -307,10 +332,10 @@ def posterior_data_mean_quantiles(ts, rvs, psamples):
 
     for psample in psamples:
         one_qs=[]
-        for t, rv, V, tau, sigma in zip(ts, rvs, psample.V, psample.tau, psample.sigma):
+        for t, rv, V, sigma0, tau, sigma in zip(ts, rvs, psample.V, psample.sigma0, psample.tau, psample.sigma):
             one_qs.append(correlated_gaussian_quantiles(ll.residuals(t, rv, psample),
                                                         V*np.ones_like(t), 
-                                                        generate_covariance(t, sigma, tau)))
+                                                        generate_covariance(t, sigma0, sigma, tau)))
         qs += np.array(one_qs).flatten()/Nsamples
 
     return qs

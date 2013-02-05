@@ -16,25 +16,37 @@ if __name__ == '__main__':
 
     args=parser.parse_args()
 
-    inlogls=[]
+    meanlogls=[]
     for i in range(args.ntemps):
-        inlogls.append(np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i), usecols=(0,)))
+        data=np.loadtxt('%s.%02d.txt.gz'%(args.prefix, i))
+        logls=np.reshape(data[:,0], (-1, args.nwalkers))
+        chain=np.reshape(data[:, 2:], (-1, args.nwalkers, data.shape[1]-2))
 
-    betas=np.loadtxt('%s.betas.txt'%args.prefix)
+        istart = int(args.fburnin*chain.shape[0] + 0.5)
 
-    # What if we have a few more outputs in some files than in others?
-    minlen=reduce(min, [logl.shape[0] for logl in inlogls])
-    inlogls=[logl[:minlen] for logl in inlogls]
+        logls = logls[istart:, :]
+        chain = chain[istart:,:,:]
 
-    # Now ordered as (Nsamples*Nwalkers, Nchains)
-    inlogls=np.transpose(np.array(inlogls))
+        chain,logls = pt.burned_in_samples(chain,logls)
+        
+        meanlogls.append(np.mean(logls.flatten()))
 
-    # Resahpe to (Nsamples, Nchains, Nwalkers)
-    logls=np.zeros((inlogls.shape[0]/args.nwalkers, args.ntemps, args.nwalkers))
-    for i in range(args.ntemps):
-        logls[:, i, :] = np.reshape(inlogls[:,i], (-1, args.nwalkers))
+    meanlogls = np.array(meanlogls)
 
-    # burn in...
-    logls=logls[int(args.fburnin*logls.shape[0])+1:, ...]
+    inbetas=np.loadtxt('%s.betas.txt'%args.prefix)
+    inbetas2 = inbetas[::2]
+    betas = np.zeros(inbetas.shape[0] + 1)
+    betas2 = np.zeros(inbetas2.shape[0] + 1)
+    betas[:-1] = inbetas
+    betas2[:-1] = inbetas2
 
-    print pt.thermodynamic_log_evidence(logls, betas)
+    dbetas = np.diff(betas)
+    dbetas2 = np.diff(betas2)
+
+    lnZ = -np.sum(dbetas*meanlogls)
+    lnZ2 = -np.sum(dbetas2*meanlogls[::2])
+
+    dlnZ = np.abs(lnZ2 - lnZ)
+
+    print '# ln(Z) dln(Z)'
+    print np.sum(dbetas*np.array(meanlogls)), dlnZ
