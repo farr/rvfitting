@@ -265,20 +265,20 @@ def generate_initial_sample(pmin, pmax, ntemps, nwalkers):
         tau[:,:,i] = draw_logarithmic(low=pmin.tau[i], high=pmax.tau[i], size=(ntemps,nwalkers))
         sigma[:,:,i] = draw_logarithmic(low=pmin.sigma[i], high=pmax.sigma[i], size=(ntemps,nwalkers))
         sigma0[:,:,i] = draw_logarithmic(low=pmin.sigma[i], high=pmax.sigma[i], size=(ntemps, nwalkers))
-    samps.V=V
-    samps.tau = tau
-    samps.sigma = sigma
-    samps.sigma0 = sigma0
+    samps.V=np.squeeze(V)
+    samps.tau = np.squeeze(tau)
+    samps.sigma = np.squeeze(sigma)
+    samps.sigma0 = np.squeeze(sigma0)
 
     if npl >= 1:
-        samps.K = draw_logarithmic(low=pmin.K[0], high=pmax.K[0], size=(ntemps, nwalkers, npl))
+        samps.K = np.squeeze(draw_logarithmic(low=pmin.K[0], high=pmax.K[0], size=(ntemps, nwalkers, npl)))
 
         # Make sure that periods are increasing
-        samps.n = np.sort(draw_logarithmic(low=pmin.n, high=pmax.n, size=(ntemps,nwalkers,npl)))[:,:,::-1]
+        samps.n = np.squeeze(np.sort(draw_logarithmic(low=pmin.n, high=pmax.n, size=(ntemps,nwalkers,npl)))[:,:,::-1])
 
-        samps.e = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
-        samps.chi = nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl))
-        samps.omega = nr.uniform(low=0.0, high=2.0*np.pi, size=(ntemps, nwalkers,npl))
+        samps.e = np.squeeze(nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl)))
+        samps.chi = np.squeeze(nr.uniform(low=0.0, high=1.0, size=(ntemps, nwalkers,npl)))
+        samps.omega = np.squeeze(nr.uniform(low=0.0, high=2.0*np.pi, size=(ntemps, nwalkers,npl)))
 
     return samps
 
