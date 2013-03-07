@@ -25,14 +25,14 @@ def generate_covariance(ts, sigma0, sigma, tau):
 
     .. math::
       
-      \left\langle x_i x_j \right\rangle = \sigma_0 \delta_{ij} + \sigma \exp\left[ \frac{\left| t_i - t_j\right|}{\tau} \right]"""
+      \left\langle x_i x_j \right\rangle = \sigma_0^2 \delta_{ij} + \frac{\sigma^2}{2\tau} \exp\left[ \frac{\left| t_i - t_j\right|}{\tau} \right]"""
 
     ndim = ts.shape[0]
 
     tis = np.tile(np.reshape(ts, (-1, 1)), (1, ndim))
     tjs = np.tile(ts, (ndim, 1))
 
-    return sigma0*sigma0*np.eye(ndim) + sigma*sigma*np.exp(-np.abs(tis-tjs)/tau)
+    return sigma0*sigma0*np.eye(ndim) + sigma*sigma/(2.0*tau)*np.exp(-np.abs(tis-tjs)/tau)
 
 def correlated_gaussian_quantiles(xs, means, cov):
     """Returns an array of quantiles for each of the xs in the
